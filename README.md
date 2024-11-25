@@ -5,7 +5,7 @@ The conda environment related to this work, can be installed using:
 ```bash
   conda env create -f nereids_env.yaml
 ```
-or, if one uses the mamba package manager
+or, if one uses the mamba package manager:
 ```bash
   mamba env create -f nereids_env.yaml
 ``` 
