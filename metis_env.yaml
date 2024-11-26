@@ -1,4 +1,4 @@
-name: nereids_env
+name: metis_env
 channels:
   - conda-forge
 dependencies:
@@ -76,4 +76,4 @@ dependencies:
   - xz=5.2.6=h57fd34a_0
   - zipp=3.21.0=pyhd8ed1ab_0
   - zstd=1.5.6=hb46c0d2_0
-prefix: /Users/matteogallo/miniforge3/envs/nereids_env
+prefix: /Users/matteogallo/miniforge3/envs/metis_env
