@@ -2,11 +2,12 @@ from jax import random
 import jax.numpy as jnp
 import numpy as np
 import jax.nn as nn
-
+import matplotlib.pyplot as plt
+import scienceplots
 
 class DifferentialEquations:
 
-    def __init__(self, n_vars, n_eqs, max_sum_terms, max_mult_terms, non_lins, sym_non_lins = None, seed = 42):
+    def __init__(self, n_vars, n_eqs, max_sum_terms, max_mult_terms, non_lins, sym_non_lins=None, seed=42):
         """
             Initialize differential equations generator.
 
@@ -27,6 +28,12 @@ class DifferentialEquations:
         self.non_lins = non_lins
         self.sym_non_lins = sym_non_lins
 
+        # If the symbols are not defined a priori, use generic names
+        if(self.sym_non_lins == None):
+            self.sym_non_lins = []
+            for i in range(len(non_lins)):
+                self.sym_non_lins.append(f"\\text{{nl}}_{i+1}")
+
         # Initialize lists for storing the equations
         # and their symbolic expression
         self.equations = []
@@ -41,6 +48,7 @@ class DifferentialEquations:
         for i in range(self.n_eqs):
 
             equation = []
+            sym_eq = f"\\frac{{dy_{i+1}}}{{dt}} = "
 
             # Loop on every addend in the i-th equation
             for _ in range(n_sum_terms[i]):
@@ -48,12 +56,13 @@ class DifferentialEquations:
                 self.key, subkey = random.split(self.key)
                 n_mult_terms = random.randint(subkey, shape=(1,), minval=1, maxval=self.max_mult_terms+1)  # Draw how many multiplicands for the i-th addend
                 non_lins_idxs = random.randint(subkey, shape=(n_mult_terms[0],), minval=0, maxval=len(self.non_lins))  # Draw a number of n_mult_terms of nls with replacement
-                var_to_be_applied_idxs = random.randint(subkey, shape=(n_mult_terms[0],), minval=0, maxval=self.n_eqs)  # Draw to which variable apply the non-linearities
+                var_to_be_applied_idxs = random.randint(subkey, shape=(n_mult_terms[0],), minval=0, maxval=self.n_vars)  # Draw to which variable apply the non-linearities
 
                 # Create an array of the length equal to the number of variables
                 # such that each position represent the variable to which apply
                 # the non-linearity/ies
                 addend = np.ones(self.n_vars).tolist()
+                sym_addend = ""
 
                 for j in list(set(var_to_be_applied_idxs.tolist())):
                     idxs = non_lins_idxs[np.where(var_to_be_applied_idxs == j)]
@@ -61,39 +70,37 @@ class DifferentialEquations:
 
                     for k in idxs:
                         temp.append(self.non_lins[k])
+                        sym_addend += self.sym_non_lins[k] + f"(y_{j+1})"
 
-                    addend[j] = temp
-                
+                    addend[j] = temp  # Add the the non-linearity/ies in the position where it should ne applied
+                    
+
                 equation.append(addend)
+                sym_eq += sym_addend + " + "
 
             self.equations.append(equation)
 
-    
-    def non_linearity_symbol(self, nl):
-        """
-            Define the LaTeX symbolic expression for each non-linearity.
-
-            Parameters:
-            nl: proposed non linearity.
-
-            Return:
-            LaTeX symbolic expression of a non-linearity
-        """
-
-        # If the symbols are not defined a priori, use generic names
-        if(self.sym_non_lins == None):
-
-            index = self.non_lins.index(nl) if nl in self.non_lins else None  # Check if the non linearity candidate is in the list
-            return f"\\text{{nl}}_{index}" if index is not None else "\\text{unknown\\_non\\_linearity}"
-            
-        else:
-
-            index = self.non_lins.index(nl) if nl in self.non_lins else None
-            return self.sym_expr[index] if index is not None else "\\text{unknown\\_non\\_linearity}"
+            sym_eq = sym_eq[:-3]
+            self.sym_expr.append(sym_eq)
         
+    def __getitem__(self, idx):
+        return self.equations[idx], self.sym_expr[idx]
+    
+    def show_equations(self):
+        plt.style.use('science')
+        plt.rcParams['text.usetex'] = True
+        
+        fig, ax = plt.subplots(figsize=(16, 8))
 
-    def __getitem__(self):
-        return self.equations
+        # Hide axes
+        ax.axis('off')
+
+        # Loop over the list of expressions and render each one
+        for idx, expr in enumerate(self.sym_expr):
+            ax.text(0.5, 1 - (idx * 0.2), f"${expr}$", fontsize=20, ha='center', va='top')
+
+        # Save the figure to a PDF
+        plt.show()
 
 
 # Define the theta parameters for the three specified non-linearities
@@ -110,7 +117,8 @@ def non_linearity_1(x):
     alpha1, alpha2, gamma1, gamma2, beta1, beta2 = theta_1
     return (alpha1 * nn.relu(gamma1 * x - beta1) + alpha2 * nn.relu(gamma2 * x - beta2))
 
-non_lin1_sym = f"{theta_1[0]} \\cdot \\text{{ReLU}}({theta_1[2]} x - {theta_1[4]}) + {theta_1[1]} \\cdot \\text{{ReLU}}({theta_1[3]} x - {theta_1[5]})"
+#non_lin1_sym = f"{theta_1[0]} \\cdot \\text{{ReLU}}({theta_1[2]} x - {theta_1[4]}) + {theta_1[1]} \\cdot \\text{{ReLU}}({theta_1[3]} x - {theta_1[5]})"
+non_lin1_sym = "Sat"
 non_lin_syms.append(non_lin1_sym)
 
 # Definition for the identity function paramterized with ReLUs
@@ -118,7 +126,8 @@ def non_linearity_2(x):
     alpha1, alpha2, gamma1, gamma2, beta1, beta2 = theta_2
     return (alpha1 * nn.relu(gamma1 * x - beta1) + alpha2 * nn.relu(gamma2 * x - beta2))
 
-non_lin2_sym = f"{theta_2[0]} \\cdot \\text{{ReLU}}({theta_2[2]} x - {theta_2[4]}) + {theta_2[1]} \\cdot \\text{{ReLU}}({theta_2[3]} x - {theta_2[5]})"
+#non_lin2_sym = f"{theta_2[0]} \\cdot \\text{{ReLU}}({theta_2[2]} x - {theta_2[4]}) + {theta_2[1]} \\cdot \\text{{ReLU}}({theta_2[3]} x - {theta_2[5]})"
+non_lin2_sym = "ID"
 non_lin_syms.append(non_lin2_sym)
 
 # Definition for the inverse function parametrized with ReLUs
@@ -126,9 +135,11 @@ def non_linearity_3(x):
     alpha1, alpha2, gamma1, gamma2, beta1, beta2 = theta_3
     return (alpha1 * nn.relu(gamma1 * x - beta1) + alpha2 * nn.relu(gamma2 * x - beta2))
 
-non_lin3_sym = f"{theta_3[0]} \\cdot \\text{{ReLU}}({theta_3[2]} x - {theta_3[4]}) + {theta_3[1]} \\cdot \\text{{ReLU}}({theta_3[3]} x - {theta_3[5]})"
+#non_lin3_sym = f"{theta_3[0]} \\cdot \\text{{ReLU}}({theta_3[2]} x - {theta_3[4]}) + {theta_3[1]} \\cdot \\text{{ReLU}}({theta_3[3]} x - {theta_3[5]})"
+non_lin3_sym = "Inv"
 non_lin_syms.append(non_lin3_sym)
 
+system = DifferentialEquations(n_vars=5, n_eqs=3, max_sum_terms=3, max_mult_terms=3, non_lins=[non_linearity_1, non_linearity_2, non_linearity_3], sym_non_lins=non_lin_syms)
+print(system.equations, system.sym_expr)
 
-system = DifferentialEquations(5, 5, 10, 10, [non_linearity_1, non_linearity_2, non_linearity_3])
-print(system.equations)
+system.show_equations()
