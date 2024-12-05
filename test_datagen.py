@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import scienceplots
 from scipy.integrate import RK45
 from tqdm import tqdm
+import os
 
 # Define the theta parameters for the three specified non-linearities
 theta_1 = jnp.array([10, -10, 1.0, 1.0, 0.0, 0.1])  # parameters for the saturation function
@@ -44,6 +45,7 @@ def non_linearity_3(x):
 non_lin3_sym = "\\text{{Inv}}"
 non_lin_syms.append(non_lin3_sym)
 
+# Define hyperameters for the Equations class
 config = {
     "n_vars": 54,
     "n_eqs": 54,
@@ -54,27 +56,30 @@ config = {
     "seed": 42
 }
 
+# Create the system of equations
 system = Equations(**config)
 
-system.show_equations(save=True, filename="Data/expression.pdf")
+# Show the created equations
+save_dir = "Data/"
+os.makedirs(save_dir, exist_ok=True)
+system.show_equations(save=True, filename=os.path.join(save_dir,"expression.pdf"))
 
-# Initial conditions
+# Initial random conditions
 seed = config["seed"]
 key = random.key(seed)
 y0 = random.uniform(key, shape=(config["n_vars"],), minval=-1, maxval=2)  # Initial values of ys
-step = 0.1
-t_final = 5
+step = 0.001
+t_final = 500
 t0 = 0
 
+# Initialize the solver
 solver = RK45(system, t0=t0, y0=y0, t_bound=t_final, max_step=step)
 
 t_values = []
 y_values = []
-
-
 n_steps = int((t_final - t0) / step)
 
-# Use tqdm to show progress bar
+# Solve the system
 with tqdm(total=n_steps, desc="Integrating System") as pbar:
     while solver.status == 'running':
         solver.step()
@@ -84,14 +89,14 @@ with tqdm(total=n_steps, desc="Integrating System") as pbar:
 
 y_values = np.array(y_values)
 
-# Plot y1 and y2 as a function of time
+# Plot the solutions as a function of time
 plt.figure(figsize=(16, 8))
 for i in range(config["n_eqs"]):
     plt.plot(t_values, y_values[:, i])
 plt.xlabel("Time t")
 plt.ylabel("y(t)")
 plt.title("Solution of System of ODEs using RK45")
-plt.legend()
+#plt.legend()
 plt.grid(True)
 plt.show()
 plt.clf()
