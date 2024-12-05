@@ -123,6 +123,7 @@ class Equations:
         plt.style.use('science')
         plt.rcParams['text.usetex'] = True
         
+        
         fig, ax = plt.subplots(figsize=(16, 8))
 
         # Hide axes

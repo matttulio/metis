@@ -71,6 +71,7 @@ solver = RK45(system, t0=t0, y0=y0, t_bound=t_final, max_step=step)
 t_values = []
 y_values = []
 
+
 n_steps = int((t_final - t0) / step)
 
 # Use tqdm to show progress bar
