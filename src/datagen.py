@@ -4,8 +4,9 @@ import numpy as np
 import jax.nn as nn
 import matplotlib.pyplot as plt
 import scienceplots
+from tqdm import tqdm
 
-class DifferentialEquations:
+class Equations:
 
     def __init__(self, n_vars, n_eqs, max_sum_terms, max_mult_terms, non_lins, sym_non_lins=None, seed=42):
         """
@@ -45,10 +46,10 @@ class DifferentialEquations:
         n_sum_terms = random.randint(self.key, shape=(self.n_eqs,), minval=1, maxval=self.max_sum_terms+1)
         n_mult_terms = []
 
-        for i in range(self.n_eqs):
+        for i in tqdm(range(self.n_eqs), desc="Generating Equations"):
 
             equation = []
-            sym_eq = f"\\frac{{dy_{i+1}}}{{dt}} = "
+            sym_eq = f"\\frac{{dy_{{{i+1}}}}}{{dt}} = "
 
             # Loop on every addend in the i-th equation
             for _ in range(n_sum_terms[i]):
@@ -70,7 +71,7 @@ class DifferentialEquations:
 
                     for k in idxs:
                         temp.append(self.non_lins[k])
-                        sym_addend += self.sym_non_lins[k] + f"(y_{j+1})"
+                        sym_addend += self.sym_non_lins[k] + f"(y_{{{j+1}}})"
 
                     addend[j] = temp  # Add the the non-linearity/ies in the position where it should ne applied
                     
@@ -82,10 +83,39 @@ class DifferentialEquations:
 
             sym_eq = sym_eq[:-3]
             self.sym_expr.append(sym_eq)
+    
         
     # Function that defines the oject's output
     def __getitem__(self, idx):
         return self.equations[idx], self.sym_expr[idx]
+    
+
+    # The call method can be passed to a standard python
+    # solver for differential equations
+    def __call__(self, t, y):
+
+        f = []  # List that will have all the equations
+        
+        # Cycle that build eqs eq by eq
+        for i in range(self.n_eqs):
+
+            eq = 0  # Initialize eq to zero
+
+            # Cycle over all the addends
+            for j in range(len(self.equations[i])):
+
+                addend = 1
+                func_idxs =[_ for _, element in enumerate(self.equations[i][j]) if element != 1.0]  # Find to which variables there are nls
+
+                for k in func_idxs:
+                    for func in self.equations[i][j][k]:
+                        addend *= func(y[k])  # Apply the nls to the variable
+
+                eq += addend  # Once the addend has all the multiplicands, add it to the eq
+
+            f.append(eq)  # Once eq is complete append it to the list
+
+        return f
     
     # Function useful to display the generated equations
     def show_equations(self, save=False, filename=None):
@@ -110,29 +140,7 @@ class DifferentialEquations:
         else:
             plt.show()
 
-    # The call method can be passed to a standard python
-    # solver for differential equations
-    def __call__(self, t, y):
+        plt.clf()
+        plt.close()
 
-        dy_dt = []  # List that will have all the equations
-        
-        # Cycle that build eqs eq by eq
-        for i in range(self.n_eqs):
-
-            eq = 0  # Initialize eq to zero
-
-            # Cycle over all the addends
-            for j in range(len(self.equations[i])):
-
-                addend = 1
-                func_idxs =[_ for _, element in enumerate(self.equations[i][j]) if element != 1.0]  # Find to which variables there are nls
-
-                for k in func_idxs:
-                    for func in self.equations[i][j][k]:
-                        addend *= func(y[k])  # Apply the nls to the variable
-
-                eq += addend  # Once the addend has all the multiplicands, add it to the eq
-
-            dy_dt.append(eq)  # Once eq is complete append it to the list
-
-        return dy_dt
+    
