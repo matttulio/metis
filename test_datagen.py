@@ -47,8 +47,8 @@ non_lin_syms.append(non_lin3_sym)
 
 # Define hyperameters for the Equations class
 config = {
-    "n_vars": 54,
-    "n_eqs": 54,
+    "n_vars": 10,
+    "n_eqs": 10,
     "max_sum_terms": 3,
     "max_mult_terms": 3,
     "non_lins": [non_linearity_1, non_linearity_2, non_linearity_3],
@@ -68,8 +68,8 @@ system.show_equations(save=True, filename=os.path.join(save_dir,"expression.pdf"
 seed = config["seed"]
 key = random.key(seed)
 y0 = random.uniform(key, shape=(config["n_vars"],), minval=-1, maxval=2)  # Initial values of ys
-step = 0.001
-t_final = 500
+step = 0.1
+t_final = 10
 t0 = 0
 
 # Initialize the solver

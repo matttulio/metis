@@ -75,7 +75,6 @@ class Equations:
 
                     addend[j] = temp  # Add the the non-linearity/ies in the position where it should ne applied
                     
-
                 equation.append(addend)
                 sym_eq += sym_addend + " + "
 
@@ -83,7 +82,6 @@ class Equations:
 
             sym_eq = sym_eq[:-3]
             self.sym_expr.append(sym_eq)
-    
         
     # Function that defines the oject's output
     def __getitem__(self, idx):
@@ -122,7 +120,6 @@ class Equations:
 
         plt.style.use('science')
         plt.rcParams['text.usetex'] = True
-        
         
         fig, ax = plt.subplots(figsize=(16, 8))
 
