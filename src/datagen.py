@@ -109,3 +109,30 @@ class DifferentialEquations:
                 plt.savefig(filename, format='pdf', bbox_inches='tight')
         else:
             plt.show()
+
+    # The call method can be passed to a standard python
+    # solver for differential equations
+    def __call__(self, t, y):
+
+        dy_dt = []  # List that will have all the equations
+        
+        # Cycle that build eqs eq by eq
+        for i in range(self.n_eqs):
+
+            eq = 0  # Initialize eq to zero
+
+            # Cycle over all the addends
+            for j in range(len(self.equations[i])):
+
+                addend = 1
+                func_idxs =[_ for _, element in enumerate(self.equations[i][j]) if element != 1.0]  # Find to which variables there are nls
+
+                for k in func_idxs:
+                    for func in self.equations[i][j][k]:
+                        addend *= func(y[k])  # Apply the nls to the variable
+
+                eq += addend  # Once the addend has all the multiplicands, add it to the eq
+
+            dy_dt.append(eq)  # Once eq is complete append it to the list
+
+        return dy_dt

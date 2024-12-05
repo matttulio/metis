@@ -5,6 +5,7 @@ import numpy as np
 import jax.nn as nn
 import matplotlib.pyplot as plt
 import scienceplots
+from scipy.integrate import solve_ivp
 
 # Define the theta parameters for the three specified non-linearities
 theta_1 = jnp.array([10, -10, 1.0, 1.0, 0.0, 0.1])  # parameters for the saturation function
@@ -42,7 +43,28 @@ def non_linearity_3(x):
 non_lin3_sym = "\\text{{Inv}}"
 non_lin_syms.append(non_lin3_sym)
 
-system = DifferentialEquations(n_vars=5, n_eqs=3, max_sum_terms=3, max_mult_terms=3, non_lins=[non_linearity_1, non_linearity_2, non_linearity_3], sym_non_lins=non_lin_syms)
+system = DifferentialEquations(n_vars=4, n_eqs=4, max_sum_terms=3, max_mult_terms=3, non_lins=[non_linearity_1, non_linearity_2, non_linearity_3], sym_non_lins=non_lin_syms)
 print(system.equations, system.sym_expr)
 
 system.show_equations(save=True, filename="Data/expression.pdf")
+
+
+
+# Initial conditions
+y0 = [1.0, 0.5, 2.0, 0.1]  # Initial values of y1, y2, y3, y4
+t_span = (0, 20)           # Time range for integration
+t_eval = np.linspace(*t_span, 200)  # Time points where solution is evaluated
+
+
+solution = solve_ivp(system, t_span, y0, method='RK45', t_eval=t_eval)
+
+# Plot the results
+plt.figure(figsize=(16, 8))
+for i in range(4):
+    plt.plot(solution.t, solution.y[i], label=f'y{i+1}(t)')
+plt.title("Solution of ODE system using RK45")
+plt.xlabel("Time t")
+plt.ylabel("y(t)")
+plt.legend()
+plt.grid(True)
+plt.show()
