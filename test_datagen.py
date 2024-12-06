@@ -83,8 +83,8 @@ non_lin_syms.append(non_lin3_sym_negative)
 
 # Define hyperameters for the Equations class
 config = {
-    "n_vars": 100,
-    "n_eqs": 100,
+    "n_vars": 60,
+    "n_eqs": 60,
     "max_sum_terms": 3,
     "max_mult_terms": 3,
     "non_lins": non_lins,
@@ -140,4 +140,5 @@ plt.show()
 plt.clf()
 plt.close()
 
+# Show the interaction graph
 system.show_graph()
