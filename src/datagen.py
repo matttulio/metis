@@ -49,7 +49,7 @@ class Equations:
         for i in tqdm(range(self.n_eqs), desc="Generating Equations"):
 
             equation = []
-            sym_eq = f"\\frac{{dy_{{{i+1}}}}}{{dt}} = "
+            sym_eq = f"f_{{{i+1}}} = "
 
             # Loop on every addend in the i-th equation
             for _ in range(n_sum_terms[i]):
@@ -76,6 +76,7 @@ class Equations:
                     addend[j] = temp  # Add the the non-linearity/ies in the position where it should ne applied
                     
                 equation.append(addend)
+                
                 sym_eq += sym_addend + " + "
 
             self.equations.append(equation)

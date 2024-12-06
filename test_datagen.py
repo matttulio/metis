@@ -16,6 +16,7 @@ theta_3 = jnp.array([1.0, 2.0, -1.0, -5.0, -2.0, -1.0])  # parameters for the in
 theta_list = [theta_1, theta_2, theta_3]
 
 # Define list of symbolic expressions of non-linearities
+non_lins = []
 non_lin_syms = []
 
 # Definition for the saturation function parametrized with ReLUs
@@ -24,6 +25,7 @@ def non_linearity_1(x):
     return (alpha1 * nn.relu(gamma1 * x - beta1) + alpha2 * nn.relu(gamma2 * x - beta2))
 
 #non_lin1_sym = f"{theta_1[0]} \\cdot \\text{{ReLU}}({theta_1[2]} x - {theta_1[4]}) + {theta_1[1]} \\cdot \\text{{ReLU}}({theta_1[3]} x - {theta_1[5]})"
+non_lins.append(non_linearity_1)
 non_lin1_sym = "\\text{{Sat}}"
 non_lin_syms.append(non_lin1_sym)
 
@@ -33,6 +35,7 @@ def non_linearity_2(x):
     return (alpha1 * nn.relu(gamma1 * x - beta1) + alpha2 * nn.relu(gamma2 * x - beta2))
 
 #non_lin2_sym = f"{theta_2[0]} \\cdot \\text{{ReLU}}({theta_2[2]} x - {theta_2[4]}) + {theta_2[1]} \\cdot \\text{{ReLU}}({theta_2[3]} x - {theta_2[5]})"
+non_lins.append(non_linearity_2)
 non_lin2_sym = "\\text{{ID}}"
 non_lin_syms.append(non_lin2_sym)
 
@@ -42,8 +45,39 @@ def non_linearity_3(x):
     return (alpha1 * nn.relu(gamma1 * x - beta1) + alpha2 * nn.relu(gamma2 * x - beta2))
 
 #non_lin3_sym = f"{theta_3[0]} \\cdot \\text{{ReLU}}({theta_3[2]} x - {theta_3[4]}) + {theta_3[1]} \\cdot \\text{{ReLU}}({theta_3[3]} x - {theta_3[5]})"
+non_lins.append(non_linearity_3)
 non_lin3_sym = "\\text{{Inv}}"
 non_lin_syms.append(non_lin3_sym)
+
+# Definition for the saturation function parametrized with ReLUs
+def non_linearity_1_negative(x):
+    alpha1, alpha2, gamma1, gamma2, beta1, beta2 = theta_1
+    return -1 * (alpha1 * nn.relu(gamma1 * x - beta1) + alpha2 * nn.relu(gamma2 * x - beta2))
+
+#non_lin1_sym = f"{theta_1[0]} \\cdot \\text{{ReLU}}({theta_1[2]} x - {theta_1[4]}) + {theta_1[1]} \\cdot \\text{{ReLU}}({theta_1[3]} x - {theta_1[5]})"
+non_lins.append(non_linearity_1_negative)
+non_lin1_sym_negative = "\\overline{{\\text{{Sat}}}}"
+non_lin_syms.append(non_lin1_sym_negative)
+
+# Definition for the identity function paramterized with ReLUs
+def non_linearity_2_negative(x):
+    alpha1, alpha2, gamma1, gamma2, beta1, beta2 = theta_2
+    return -1 * (alpha1 * nn.relu(gamma1 * x - beta1) + alpha2 * nn.relu(gamma2 * x - beta2))
+
+#non_lin2_sym = f"{theta_2[0]} \\cdot \\text{{ReLU}}({theta_2[2]} x - {theta_2[4]}) + {theta_2[1]} \\cdot \\text{{ReLU}}({theta_2[3]} x - {theta_2[5]})"
+non_lins.append(non_linearity_2_negative)
+non_lin2_sym_negative = "\\overline{{\\text{{ID}}}}"
+non_lin_syms.append(non_lin2_sym_negative)
+
+# Definition for the inverse function parametrized with ReLUs
+def non_linearity_3_negative(x):
+    alpha1, alpha2, gamma1, gamma2, beta1, beta2 = theta_3
+    return -1 * (alpha1 * nn.relu(gamma1 * x - beta1) + alpha2 * nn.relu(gamma2 * x - beta2))
+
+#non_lin3_sym = f"{theta_3[0]} \\cdot \\text{{ReLU}}({theta_3[2]} x - {theta_3[4]}) + {theta_3[1]} \\cdot \\text{{ReLU}}({theta_3[3]} x - {theta_3[5]})"
+non_lins.append(non_linearity_3_negative)
+non_lin3_sym_negative = "\\overline{{\\text{{Inv}}}}"
+non_lin_syms.append(non_lin3_sym_negative)
 
 # Define hyperameters for the Equations class
 config = {
@@ -51,7 +85,7 @@ config = {
     "n_eqs": 10,
     "max_sum_terms": 3,
     "max_mult_terms": 3,
-    "non_lins": [non_linearity_1, non_linearity_2, non_linearity_3],
+    "non_lins": non_lins,
     "sym_non_lins": non_lin_syms,
     "seed": 42
 }
@@ -79,13 +113,16 @@ t_values = []
 y_values = []
 n_steps = int((t_final - t0) / step)
 
-# Solve the system
-with tqdm(total=n_steps, desc="Integrating System") as pbar:
-    while solver.status == 'running':
+# Progress bar for variable step size
+with tqdm(total=t_final, desc="Integrating System", bar_format="{l_bar}{bar} | Time: {n:.2f}/{total:.2f} seconds") as pbar:
+    while solver.status == "running":
         solver.step()
         t_values.append(solver.t)
         y_values.append(solver.y)
-        pbar.update(1)
+        
+        # Update progress bar based on time progress
+        pbar.n = round(solver.t - t0, 3)
+        pbar.update(0)  # Refresh the bar
 
 y_values = np.array(y_values)
 
@@ -96,7 +133,6 @@ for i in range(config["n_eqs"]):
 plt.xlabel("Time t")
 plt.ylabel("y(t)")
 plt.title("Solution of System of ODEs using RK45")
-#plt.legend()
 plt.grid(True)
 plt.show()
 plt.clf()
