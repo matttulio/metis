@@ -8,6 +8,8 @@ import scienceplots
 from scipy.integrate import RK45
 from tqdm import tqdm
 import os
+import networkx as nx
+import re
 
 # Define the theta parameters for the three specified non-linearities
 theta_1 = jnp.array([10, -10, 1.0, 1.0, 0.0, 0.1])  # parameters for the saturation function
@@ -81,13 +83,13 @@ non_lin_syms.append(non_lin3_sym_negative)
 
 # Define hyperameters for the Equations class
 config = {
-    "n_vars": 10,
-    "n_eqs": 10,
+    "n_vars": 100,
+    "n_eqs": 100,
     "max_sum_terms": 3,
     "max_mult_terms": 3,
     "non_lins": non_lins,
     "sym_non_lins": non_lin_syms,
-    "seed": 42
+    "seed": 101
 }
 
 # Create the system of equations
@@ -137,3 +139,5 @@ plt.grid(True)
 plt.show()
 plt.clf()
 plt.close()
+
+system.show_graph()

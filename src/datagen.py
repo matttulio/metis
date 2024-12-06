@@ -5,6 +5,7 @@ import jax.nn as nn
 import matplotlib.pyplot as plt
 import scienceplots
 from tqdm import tqdm
+import networkx as nx
 
 class Equations:
 
@@ -104,7 +105,7 @@ class Equations:
             for j in range(len(self.equations[i])):
 
                 addend = 1
-                func_idxs =[_ for _, element in enumerate(self.equations[i][j]) if element != 1.0]  # Find to which variables there are nls
+                func_idxs = [_ for _, element in enumerate(self.equations[i][j]) if element != 1.0]  # Find to which variables there are nls
 
                 for k in func_idxs:
                     for func in self.equations[i][j][k]:
@@ -142,4 +143,55 @@ class Equations:
         plt.clf()
         plt.close()
 
-    
+
+    def show_graph(self, save=False, filename=None):
+
+        variables = [f"y_{{{i+1}}}" for i in range(self.n_vars)]
+        funcs = [f"f_{{{i+1}}}" for i in range(self.n_eqs)]
+
+        # Initialize a graph to store interactions
+        G = nx.DiGraph()
+        G.add_nodes_from(variables)
+        G.add_nodes_from(funcs)
+
+        # Iterate over the equations
+        i = 0
+        for eq in self.equations:
+            active_idxs = []
+            
+            # Collect variable indices for the terms in the equation
+            for term in eq:
+                active_idxs.extend([_ for _, element in enumerate(term) if element != 1.0])
+
+            for j in range(len(active_idxs)):
+                # From variable to function
+                G.add_edge(variables[active_idxs[j]], funcs[i])
+
+            i += 1
+
+        # Plot the interaction graph
+        plt.figure(figsize=(8, 6))
+
+        # Define positions using spring layout
+        pos = nx.spring_layout(G, k=10, iterations=5000)
+
+        # Set LaTeX rendering for labels
+        plt.rc('text', usetex=True)
+
+        # Define node colors: blue for variables, green for functions
+        node_colors = ['skyblue' if node in variables else 'lightgreen' for node in G.nodes]
+
+        # Draw the graph with labels
+        nx.draw(G, pos, with_labels=True, labels={node: f"${node}$" for node in G.nodes()},
+                node_size=1000, node_color=node_colors, font_size=12, font_weight='bold')
+
+        if(save):
+            if(filename==None):
+                plt.savefig('graph.pdf', format='pdf', bbox_inches='tight')
+            else:
+                plt.savefig(filename, format='pdf', bbox_inches='tight')
+        else:
+            plt.show()
+
+        plt.clf()
+        plt.close()
