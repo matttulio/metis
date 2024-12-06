@@ -1,11 +1,9 @@
 from jax import random
-import jax.numpy as jnp
 import numpy as np
-import jax.nn as nn
 import matplotlib.pyplot as plt
-import scienceplots
 from tqdm import tqdm
 import networkx as nx
+import scienceplots
 
 class Equations:
 

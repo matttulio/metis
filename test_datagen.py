@@ -4,12 +4,9 @@ import jax.numpy as jnp
 import numpy as np
 import jax.nn as nn
 import matplotlib.pyplot as plt
-import scienceplots
 from scipy.integrate import RK45
 from tqdm import tqdm
 import os
-import networkx as nx
-import re
 
 # Define the theta parameters for the three specified non-linearities
 theta_1 = jnp.array([10, -10, 1.0, 1.0, 0.0, 0.1])  # parameters for the saturation function
