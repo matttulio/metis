@@ -22,7 +22,14 @@ or, if one uses the mamba package manager:
 ```
 
 ## Folder Structure
-In the `src` folder, you can find the `datagen` class, which can be used to generate systems of random differential equations, also in their symbolic form, and to generate trajectories for each equation in the system.
+The repository is organized as follows:
+
+- `src/`: Contains the source code for the project.
+  - `datagen.py`: Contains the `Equations` class for generating systems of random differential equations and their symbolic forms.
+- `data/`: Directory for storing generated data and results.
+- `Test_Datagen.ipynb`: Notebook to present the basic functionalities of Equations class.
+- `metis_env.yaml`: Conda environment file for setting up the project dependencies.
+- `README.md`: Project documentation.
 
 ## Generating the equations
 
