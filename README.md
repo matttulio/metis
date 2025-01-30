@@ -20,3 +20,86 @@ or, if one uses the mamba package manager:
 
 # Folder Structure
 In the `src` folder you can find the `datagen` class, which can be used to generate systems of random differential equations, also in their symbolic form, and also to generate trajectories for each equation in the system.
+
+# Using the Equations Class
+
+To use the `Equations` class from `datagen.py`, you need to provide the following parameters:
+
+## Required Parameters
+
+1. `n_vars` (int): 
+   - Number of variables in the system of equations
+   - Example: `n_vars = 3` for a system with three variables
+
+2. `n_eqs` (int):
+   - Number of equations to generate
+   - Example: `n_eqs = 3` to generate a system of three equations
+
+3. `max_addends` (int):
+   - Maximum number of addends in each equation
+   - Example: `max_addends = 3` means each equation can have up to 3 terms added together
+
+4. `max_multiplicands` (int):
+   - Maximum number of multiplicands in each addend
+   - Example: `max_multiplicands = 2` means each term can have up to 2 factors multiplied together
+
+5. `non_lins` (tuple of functions):
+   - List of all possible non-linear functions to use
+   - Example: `non_lins = (jnp.sin, jnp.cos)` to use sine and cosine functions
+
+## Optional Parameters
+
+6. `sym_non_lins` (list of strings, optional):
+   - Symbolic expressions of the non-linearities for equation visualization
+   - Example: `sym_non_lins = [r"\sin", r"\cos"]` for LaTeX representation
+
+7. `seed` (int, optional):
+   - Seed for reproducibility (default: 42)
+   - Example: `seed = 42`
+
+## Example Usage
+
+```python
+from src.datagen import Equations
+import jax.numpy as jnp
+
+# Define the non-linearities
+non_lins = (jnp.sin, jnp.cos)
+sym_non_lins = [r"\sin", r"\cos"]
+
+# Configure the system
+config = {
+    "n_vars": 3,
+    "n_eqs": 3,
+    "max_addends": 3,
+    "max_multiplicands": 2,
+    "non_lins": non_lins,
+    "sym_non_lins": sym_non_lins,
+    "seed": 42
+}
+
+# Create the system of equations
+system = Equations(**config)
+```
+
+# Using the save_symb_expr Function
+
+The `save_symb_expr` function is used to generate and save the symbolic expressions of the equations in the system. To use this function, you need to provide the following parameters:
+
+## Required Parameters
+
+1. `filename` (str): 
+   - The name of the file where the symbolic expressions will be saved.
+   - Example: `filename = "equations_symbolic.pdf"`
+
+## Optional Parameters
+
+2. `max_eq_per_page` (int, optional):
+   - The maximum number of equations in each page of the PDF (default: 35).
+   - Example: `max_eq_per_page = 30`
+
+## Example Usage
+
+```python
+system.save_symb_expr(filename="equations_symbolic.pdf", max_eq_per_page=30)
+```

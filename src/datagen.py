@@ -33,10 +33,15 @@ class Equations:
         self.n_vars = n_vars
         self.n_eqs = n_eqs
         self.non_lins = non_lins
-        self.sym_non_lins = sym_non_lins
-        self.seed = seed
-
         self.n_nls = len(non_lins)
+
+        if sym_non_lins is None:
+            self.sym_non_lins = [f"nl_{i+1}" for i in range(self.n_nls)]
+            print(self.sym_non_lins)
+        else:
+            self.sym_non_lins = sym_non_lins
+
+        self.seed = seed
 
         # Generate a key for reproducibility
         key = jax.random.key(seed)
@@ -245,7 +250,7 @@ class Equations:
                 plt.close(fig)
         print(f"PDF saved as {filename}")
         plt.clf()
-        plt.rcdefaults()  # Reset matplotlib settings to default
+        plt.rcdefaults()
 
 
 # Function that gets the sublists of values in the specified order
