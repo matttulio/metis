@@ -1,3 +1,5 @@
+![Metis Logo](metis_logo.jpg)
+
 # metis
 
 ## Description
@@ -104,3 +106,4 @@ The `save_symb_expr` function is used to generate and save the symbolic expressi
 ```python
 system.save_symb_expr(filename="equations_symbolic.pdf", max_eq_per_page=30)
 ```
+````
