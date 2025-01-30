@@ -6,8 +6,8 @@ Metis is named after the Greek Oceanid symbol of wisdom and deep thought. In myt
 ## Table of Contents
 - [Installation](#installation)
 - [Folder Structure](#folder-structure)
-- [Using the Equations Class](#using-the-equations-class)
-- [Using the save_symb_expr Function](#using-the-save_symb_expr-function)
+- [Generating the equations](#generating-the-equations)
+- [Saving the symbolic expressions](#saving-the-symbolic-expressions)
 
 ## Installation
 The conda environment related to this work can be installed using:
@@ -22,7 +22,7 @@ or, if one uses the mamba package manager:
 ## Folder Structure
 In the `src` folder, you can find the `datagen` class, which can be used to generate systems of random differential equations, also in their symbolic form, and to generate trajectories for each equation in the system.
 
-## Using the Equations Class
+## Generating the equations
 
 To use the `Equations` class from `datagen.py`, you need to provide the following parameters:
 
@@ -83,7 +83,7 @@ config = {
 system = Equations(**config)
 ```
 
-## Using the save_symb_expr Function
+## Saving the symbolic expressions
 
 The `save_symb_expr` function is used to generate and save the symbolic expressions of the equations in the system. To use this function, you need to provide the following parameters:
 
@@ -104,4 +104,3 @@ The `save_symb_expr` function is used to generate and save the symbolic expressi
 ```python
 system.save_symb_expr(filename="equations_symbolic.pdf", max_eq_per_page=30)
 ```
-````
