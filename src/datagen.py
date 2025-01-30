@@ -1,195 +1,285 @@
-from jax import random
-import numpy as np
-import matplotlib.pyplot as plt
-from tqdm import tqdm
-import networkx as nx
-import scienceplots
+import jax
+import jax.numpy as jnp
+from functools import partial
+from scipy.integrate import solve_ivp
+import os
+
 
 class Equations:
-
-    def __init__(self, n_vars, n_eqs, max_sum_terms, max_mult_terms, non_lins, sym_non_lins=None, seed=42):
+    def __init__(
+        self,
+        n_vars,
+        n_eqs,
+        max_addends,
+        max_multiplicands,
+        non_lins,
+        sym_non_lins=None,
+        seed=42,
+    ):
         """
-            Initialize differential equations generator.
+        Initialize equations generator.
 
-            Parameters:
-            n_vars: number of variables of the system;
-            n_eqs: number of equations to generate;
-            max_sum_terms: max number of addends in each equation;
-            max_mult_terms: max number of multiplicands in each addend;
-            non_lins: list of all the possible non linearities;
-            sym_non_lins: list of the symbolic expression of the non linearities.
+        Parameters:
+        n_vars: number of variables of the system;
+        n_eqs: number of equations to generate;
+        max_addends: max number of addends in each equation;
+        max_multiplicands: max number of multiplicands in each addend;
+        non_lins: list of all the possible non-linearities;
+        sym_non_lins: list of the symbolic expressions of the non-linearities;
+        seed: seed for reproducibility.
         """
 
-        # Initialize variables
+        # Initialize parameters
         self.n_vars = n_vars
         self.n_eqs = n_eqs
-        self.max_sum_terms = max_sum_terms
-        self.max_mult_terms = max_mult_terms
         self.non_lins = non_lins
         self.sym_non_lins = sym_non_lins
+        self.seed = seed
 
-        # If the symbols are not defined a priori, use generic names
-        if(self.sym_non_lins == None):
-            self.sym_non_lins = []
-            for i in range(len(non_lins)):
-                self.sym_non_lins.append(f"\\text{{nl}}_{i+1}")
+        self.n_nls = len(non_lins)
 
-        # Initialize lists for storing the equations
-        # and their symbolic expression
-        self.equations = []
-        self.sym_expr = []
+        # Generate a key for reproducibility
+        key = jax.random.key(seed)
 
-        self.key = random.key(seed)
+        # Function that creates random numbers
+        @jax.jit
+        def generate_random_number(subkey, minval, maxval):
+            return jax.random.randint(subkey, shape=(1,), minval=minval, maxval=maxval)
 
-        # Random generation of the number of addends to have in each equation
-        n_sum_terms = random.randint(self.key, shape=(self.n_eqs,), minval=1, maxval=self.max_sum_terms+1)
-        n_mult_terms = []
+        # Number of addends for each equation
+        self.n_addends = jax.random.randint(
+            key, shape=(n_eqs,), minval=1, maxval=max_addends + 1
+        )
+        total_addends = jnp.sum(self.n_addends)
 
-        for i in tqdm(range(self.n_eqs), desc="Generating Equations"):
+        # Number of multiplicands for each addend
+        minval = jnp.ones(total_addends)
+        maxval = jnp.ones(total_addends) * max_multiplicands + 1
+        subkey = jax.random.split(key, total_addends)
+        self.n_multiplicands = jax.vmap(generate_random_number, out_axes=1)(
+            subkey, minval, maxval
+        )
+        self.total_multiplicands = jnp.sum(self.n_multiplicands)
 
-            equation = []
-            sym_eq = f"f_{{{i+1}}} = "
+        # Non-linearity index for each multiplicand
+        minval = jnp.zeros(self.total_multiplicands)
+        maxval = jnp.ones(self.total_multiplicands) * self.n_nls
+        subkey = jax.random.split(subkey[0], self.total_multiplicands)
+        self.nls_indices = jax.vmap(generate_random_number, out_axes=1)(
+            subkey, minval, maxval
+        )
+        self.static_nls_indices = tuple(
+            self.nls_indices.tolist()[0]
+        )  # static versio used in jit compiled functions
 
-            # Loop on every addend in the i-th equation
-            for _ in range(n_sum_terms[i]):
+        # Variable index for each non-linearity
+        maxval = jnp.ones(self.total_multiplicands) * n_vars
+        subkey = jax.random.split(subkey[0], self.total_multiplicands)
+        self.variables_indices = jax.vmap(generate_random_number, out_axes=1)(
+            subkey, minval, maxval
+        )
 
-                self.key, subkey = random.split(self.key)
-                n_mult_terms = random.randint(subkey, shape=(1,), minval=1, maxval=self.max_mult_terms+1)  # Draw how many multiplicands for the i-th addend
-                non_lins_idxs = random.randint(subkey, shape=(n_mult_terms[0],), minval=0, maxval=len(self.non_lins))  # Draw a number of n_mult_terms of nls with replacement
-                var_to_be_applied_idxs = random.randint(subkey, shape=(n_mult_terms[0],), minval=0, maxval=self.n_vars)  # Draw to which variable apply the non-linearities
+        # Convert the lists of lists into a list
+        self.nls_indices = self.nls_indices[0]
+        self.variables_indices = self.variables_indices[0]
 
-                # Create an array of the length equal to the number of variables
-                # such that each position represent the variable to which apply
-                # the non-linearity/ies
-                addend = np.ones(self.n_vars).tolist()
-                sym_addend = ""
+        # Get the sets of unique nls
+        unique_nls_idx = jnp.unique(self.nls_indices)
 
-                for j in list(set(var_to_be_applied_idxs.tolist())):
-                    idxs = non_lins_idxs[np.where(var_to_be_applied_idxs == j)]
-                    temp = []
+        # Get the idxs of the variables to which apply the nls
+        self.target_var_idxs = [
+            jnp.unique(self.variables_indices[self.nls_indices == idx])
+            for idx in unique_nls_idx
+        ]
 
-                    for k in idxs:
-                        temp.append(self.non_lins[k])
-                        sym_addend += self.sym_non_lins[k] + f"(y_{{{j+1}}})"
+        number_ops = sum(
+            len(sublist) for sublist in self.target_var_idxs
+        )  # total number of operations
+        lengths = jnp.array(
+            [len(sublist) for sublist in self.target_var_idxs]
+        )  # length of the sublists inside target_var_idxs
 
-                    addend[j] = temp  # Add the the non-linearity/ies in the position where it should ne applied
-                    
-                equation.append(addend)
-                
-                sym_eq += sym_addend + " + "
+        # Create the indices for slicing the array of the results
+        start_idxs = jnp.concatenate([jnp.array([0]), jnp.cumsum(lengths)[:-1]])
+        self.end_idxs = start_idxs + lengths
+        self.start_idxs = tuple(start.item() for start in start_idxs)
+        self.end_idxs = tuple(end.item() for end in self.end_idxs)
+        self.results = jnp.ones(number_ops)
 
-            self.equations.append(equation)
+        # Create a mask for each non-linearity
+        mask_nls = jnp.zeros((self.n_nls, self.total_multiplicands), dtype=bool)
 
-            sym_eq = sym_eq[:-3]
-            self.sym_expr.append(sym_eq)
-        
-    # Function that defines the oject's output
-    def __getitem__(self, idx):
-        return self.equations[idx], self.sym_expr[idx]
-    
+        for i in range(self.n_nls):
+            mask_nls = mask_nls.at[i].set(self.nls_indices == i)
 
-    # The call method can be passed to a standard python
-    # solver for differential equations
+        # Create a mask for each variable
+        mask_vars = jnp.zeros((number_ops, self.total_multiplicands), dtype=bool)
+        k = 0
+        for i in range(self.n_nls):
+            for _, val in enumerate(self.target_var_idxs[i]):
+                mask_vars = mask_vars.at[k].set(self.variables_indices == val)
+                k += 1
+
+        # Create the logical and mask between the previous masks
+        self.nls_and_vars = jnp.zeros(
+            (number_ops, self.total_multiplicands), dtype=bool
+        )
+
+        k = 0
+        for i in range(self.n_nls):
+            for _, val in enumerate(self.target_var_idxs[i]):
+                self.nls_and_vars = self.nls_and_vars.at[k].set(
+                    jnp.logical_and(mask_nls[i], mask_vars[k])
+                )
+                k += 1
+
+        # Initialize the intermediate output
+        self.output = jnp.zeros(self.total_multiplicands, dtype=jnp.float32)
+
+        # Build the indices that will locate
+        # the variables in the equations tensor
+        eqs_idxs = []
+        addend_idxs = []
+        mult_idxs = []
+
+        multiplicand_index = 0
+
+        for eq in range(n_eqs):
+            for addend in range(self.n_addends[eq]):
+                num_multiplicands = self.n_multiplicands[0, multiplicand_index]
+                for mult in range(num_multiplicands):
+                    eqs_idxs.append(eq)
+                    addend_idxs.append(addend)
+                    mult_idxs.append(mult)
+                multiplicand_index += 1
+
+        self.eqs_idxs = tuple(eqs_idxs)
+        self.addend_idxs = tuple(addend_idxs)
+        self.mult_idxs = tuple(mult_idxs)
+
+        # Initialize the equations tensor, and its mask for future updates
+        self.equations = jnp.ones(
+            (n_eqs, max_addends, max_multiplicands, self.n_nls), dtype=float
+        )
+        eqs_mask = jnp.zeros(
+            (n_eqs, max_addends, max_multiplicands, self.n_nls), dtype=bool
+        )
+        eqs_mask = eqs_mask.at[
+            eqs_idxs, addend_idxs, mult_idxs, self.static_nls_indices
+        ].set(True)
+
+        # Set to zero blocks that are all false
+        false_blocks = ~jnp.any(eqs_mask, axis=(2, 3))
+        false_blocks_expanded = false_blocks[:, :, None, None]
+        self.equations = jnp.where(false_blocks_expanded, 0, self.equations)
+        self.equations = update_values(
+            self.equations,
+            self.eqs_idxs,
+            self.addend_idxs,
+            self.mult_idxs,
+            self.static_nls_indices,
+            self.variables_indices,
+        )
+
+    # Function that will be called by the integrator
     def __call__(self, t, y):
+        target_values = get_target_values(y, self.target_var_idxs)
+        short_res = compute(
+            self.non_lins, target_values, self.results, self.start_idxs, self.end_idxs
+        )
+        long_res = map_results(self.output, short_res, self.nls_and_vars)
+        self.equations = update_values(
+            self.equations,
+            self.eqs_idxs,
+            self.addend_idxs,
+            self.mult_idxs,
+            self.static_nls_indices,
+            long_res,
+        )
 
-        f = []  # List that will have all the equations
-        
-        # Cycle that build eqs eq by eq
-        for i in range(self.n_eqs):
+        return collapse(self.equations)
 
-            eq = 0  # Initialize eq to zero
+    def __getitem__(self, idx):
+        return self.equations[idx]
 
-            # Cycle over all the addends
-            for j in range(len(self.equations[i])):
+    # Create the PDF with the symbolic equations
+    def save_symb_expr(self, filename="equations.pdf", max_eq_per_page=35):
+        if os.path.exists(os.path.join(filename)):
+            print("PDF already exists")
+            return
 
-                addend = 1
-                func_idxs = [_ for _, element in enumerate(self.equations[i][j]) if element != 1.0]  # Find to which variables there are nls
+        from matplotlib.backends.backend_pdf import PdfPages
+        import scienceplots
+        import matplotlib.pyplot as plt
 
-                for k in func_idxs:
-                    for func in self.equations[i][j][k]:
-                        addend *= func(y[k])  # Apply the nls to the variable
+        plt.style.use("science")
+        plt.rcParams["text.usetex"] = True
 
-                eq += addend  # Once the addend has all the multiplicands, add it to the eq
+        sym_sys = []
+        k = 0
+        for eq in range(self.n_eqs):
+            sym_expr = rf"f_{{{eq+1}}} = "
+            for _ in range(self.n_addends[eq]):
+                for _ in range(self.n_multiplicands[0, k]):
+                    sym_expr += rf"{self.sym_non_lins[self.nls_indices[k]]}(y_{{{self.variables_indices[k]+1}}})"
+                    k += 1
+                sym_expr += " + "
+            sym_expr = sym_expr[:-3]
+            sym_sys.append(sym_expr)
 
-            f.append(eq)  # Once eq is complete append it to the list
-
-        return f
-    
-    # Function useful to display the generated equations
-    def show_equations(self, save=False, filename=None):
-
-        plt.style.use('science')
-        plt.rcParams['text.usetex'] = True
-        
-        fig, ax = plt.subplots(figsize=(16, 8))
-
-        # Hide axes
-        ax.axis('off')
-
-        # Loop over the list of expressions and render each one
-        for idx, expr in enumerate(self.sym_expr):
-            ax.text(0.5, 1 - (idx * 0.2), f"${expr}$", fontsize=20, ha='center', va='top')
-
-        if(save):
-            if(filename==None):
-                plt.savefig('expressions.pdf', format='pdf', bbox_inches='tight')
-            else:
-                plt.savefig(filename, format='pdf', bbox_inches='tight')
-        else:
-            plt.show()
-
+        with PdfPages(filename) as pdf:
+            for i in range(0, len(sym_sys), max_eq_per_page):
+                fig, ax = plt.subplots(figsize=(8.27, 11.69))  # A4 size in inches
+                ax.axis("off")
+                text = "\n".join([f"${eq}$" for eq in sym_sys[i : i + max_eq_per_page]])
+                ax.text(
+                    0.1,
+                    0.9,
+                    text,
+                    fontsize=10,
+                    ha="left",
+                    va="top",
+                    transform=ax.transAxes,
+                )
+                pdf.savefig(fig)
+                plt.close(fig)
+        print(f"PDF saved as {filename}")
         plt.clf()
-        plt.close()
+        plt.rcdefaults()  # Reset matplotlib settings to default
 
 
-    def show_graph(self, save=False, filename=None):
+# Function that gets the sublists of values in the specified order
+@jax.jit
+def get_target_values(y, idxs):
+    return [y[indices] for indices in idxs]
 
-        variables = [f"y_{{{i+1}}}" for i in range(self.n_vars)]
-        funcs = [f"f_{{{i+1}}}" for i in range(self.n_eqs)]
 
-        # Initialize a graph to store interactions
-        G = nx.DiGraph()
-        G.add_nodes_from(variables)
-        G.add_nodes_from(funcs)
+# Function that computes the results
+@partial(jax.jit, static_argnums=(0, 3, 4))
+def compute(funs, values, results, start, end):
+    for f, v, s, e in zip(funs, values, start, end):
+        results = results.at[s:e].set(f(v))
+    return results
 
-        # Iterate over the equations
-        i = 0
-        for eq in self.equations:
-            active_idxs = []
-            
-            # Collect variable indices for the terms in the equation
-            for term in eq:
-                active_idxs.extend([_ for _, element in enumerate(term) if element != 1.0])
 
-            for j in range(len(active_idxs)):
-                # From variable to function
-                G.add_edge(variables[active_idxs[j]], funcs[i])
+# Function that updates the values in the intermediate results array
+@partial(jax.jit, static_argnums=(1, 2, 3, 4))
+def update_values(array, eqx_idxs, addend_idxs, mult_idxs, static_nls_indices, values):
+    return array.at[eqx_idxs, addend_idxs, mult_idxs, static_nls_indices].set(values)
 
-            i += 1
 
-        # Plot the interaction graph
-        plt.figure(figsize=(8, 6))
+# Function that maps the results to the correct positions in the full tensor
+@jax.jit
+def map_results(output, results, a_and_b):
+    def update_output(mask, res):
+        return jnp.where(mask, res, output)
 
-        # Define positions using spring layout
-        pos = nx.spring_layout(G, k=10, iterations=5000)
+    return jnp.sum(jax.vmap(update_output)(a_and_b, results), axis=0)
 
-        # Set LaTeX rendering for labels
-        plt.rc('text', usetex=True)
 
-        # Define node colors: blue for variables, green for functions
-        node_colors = ['skyblue' if node in variables else 'lightgreen' for node in G.nodes]
-
-        # Draw the graph with labels
-        nx.draw(G, pos, with_labels=True, labels={node: f"${node}$" for node in G.nodes()},
-                node_size=1000, node_color=node_colors, font_size=12, font_weight='bold')
-
-        if(save):
-            if(filename==None):
-                plt.savefig('graph.pdf', format='pdf', bbox_inches='tight')
-            else:
-                plt.savefig(filename, format='pdf', bbox_inches='tight')
-        else:
-            plt.show()
-
-        plt.clf()
-        plt.close()
+# Function that collapses the tensor to get the final results
+@jax.jit
+def collapse(matrix):
+    product_along_axis3 = jnp.prod(matrix, axis=3)
+    result_per_equation = jnp.prod(product_along_axis3, axis=2)
+    return jnp.sum(result_per_equation, axis=1)
