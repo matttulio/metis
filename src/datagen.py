@@ -14,6 +14,8 @@ class Equations:
         max_multiplicands,
         non_lins,
         sym_non_lins=None,
+        distribution="uniform",
+        p=None,
         seed=42,
     ):
         """
@@ -26,6 +28,8 @@ class Equations:
         max_multiplicands: max number of multiplicands in each addend;
         non_lins: list of all the possible non-linearities;
         sym_non_lins: list of the symbolic expressions of the non-linearities;
+        distribution: type of distribution to use for variable probabilities ('uniform', 'beta', 'lognormal', 'custom');
+        p: custom probabilities for the variables (used only if distribution is 'custom');
         seed: seed for reproducibility.
         """
 
@@ -80,13 +84,35 @@ class Equations:
         # Variable index for each non-linearity
         maxval = jnp.ones(self.total_multiplicands) * n_vars
         subkey = jax.random.split(subkey[0], self.total_multiplicands)
-        self.variables_indices = jax.vmap(generate_random_number, out_axes=1)(
-            subkey, minval, maxval
+        p_key, subkey = jax.random.split(subkey[0])
+
+        if distribution == "uniform":
+            p = jax.random.uniform(p_key, shape=(n_vars,))
+            p = p / jnp.sum(p)
+        elif distribution == "beta":
+            p = jax.random.beta(p_key, a=0.5, b=0.5, shape=(n_vars,))
+            p = p / jnp.sum(p)
+        elif distribution == "lognormal":
+            p = jax.random.lognormal(p_key, shape=(n_vars,), sigma=2)
+            p = p / jnp.sum(p)
+        elif distribution == "custom":
+            if p is None:
+                raise ValueError(
+                    "The probabilities p must be provided when using custom distribution."
+                )
+
+            if not jnp.isclose(jnp.sum(p), 1.0):
+                raise ValueError("The sum of the probabilities p must be equal to 1.")
+        else:
+            raise ValueError("Unsupported distribution type.")
+
+        # Generate variables_indices based on the probabilities p
+        self.variables_indices = jax.random.choice(
+            subkey, n_vars, shape=(self.total_multiplicands,), p=p
         )
 
         # Convert the lists of lists into a list
         self.nls_indices = self.nls_indices[0]
-        self.variables_indices = self.variables_indices[0]
 
         # Get the sets of unique nls
         unique_nls_idx = jnp.unique(self.nls_indices)
