@@ -224,7 +224,7 @@ class Equations:
         )
 
     # Function that will be called by the integrator
-    def __call__(self, t, y):
+    def __call__(self, t=None, y=None):
         target_values = get_target_values(y, self.target_var_idxs)
         short_res = compute(
             self.non_lins, target_values, self.results, self.start_idxs, self.end_idxs
