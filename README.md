@@ -63,9 +63,29 @@ To use the `Equations` class from `datagen.py`, you need to provide the followin
    - Symbolic expressions of the non-linearities for equation visualization
    - Example: `sym_non_lins = [r"\sin", r"\cos"]` for LaTeX representation
 
-7. `seed` (int, optional):
-   - Seed for reproducibility (default: 42)
-   - Example: `seed = 42`
+7. `distribution` (str, optional):
+   - Type of distribution to use for variable probabilities ('uniform', 'beta', 'lognormal', 'custom')
+   - Example: `distribution = "uniform"`
+
+8. `a` (float, optional):
+   - Parameter 'a' for beta distribution (required if `distribution` is 'beta')
+   - Example: `a = 2.0`
+
+9. `b` (float, optional):
+   - Parameter 'b' for beta distribution (required if `distribution` is 'beta')
+   - Example: `b = 5.0`
+
+10. `sigma` (float, optional):
+    - Parameter 'sigma' for lognormal distribution (required if `distribution` is 'lognormal')
+    - Example: `sigma = 1.0`
+
+11. `p` (array-like, optional):
+    - Custom probabilities for the variables (required if `distribution` is 'custom')
+    - Example: `p = jnp.array([0.2, 0.3, 0.5])`
+
+12. `seed` (int, optional):
+    - Seed for reproducibility (default: 42)
+    - Example: `seed = 42`
 
 ### Example Usage
 
@@ -85,6 +105,11 @@ config = {
     "max_multiplicands": 2,
     "non_lins": non_lins,
     "sym_non_lins": sym_non_lins,
+    "distribution": "uniform",
+    "a": None,
+    "b": None,
+    "sigma": None,
+    "p": None,
     "seed": 42
 }
 

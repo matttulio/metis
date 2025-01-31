@@ -15,6 +15,9 @@ class Equations:
         non_lins,
         sym_non_lins=None,
         distribution="uniform",
+        a=None,
+        b=None,
+        sigma=None,
         p=None,
         seed=42,
     ):
@@ -90,10 +93,18 @@ class Equations:
             p = jax.random.uniform(p_key, shape=(n_vars,))
             p = p / jnp.sum(p)
         elif distribution == "beta":
-            p = jax.random.beta(p_key, a=0.5, b=0.5, shape=(n_vars,))
+            if a is None or b is None:
+                raise ValueError(
+                    "Parameters 'a' and 'b' must be provided for beta distribution."
+                )
+            p = jax.random.beta(p_key, a=a, b=b, shape=(n_vars,))
             p = p / jnp.sum(p)
         elif distribution == "lognormal":
-            p = jax.random.lognormal(p_key, shape=(n_vars,), sigma=2)
+            if sigma is None:
+                raise ValueError(
+                    "Parameter 'sigma' must be provided for lognormal distribution."
+                )
+            p = jax.random.lognormal(p_key, shape=(n_vars,), sigma=sigma)
             p = p / jnp.sum(p)
         elif distribution == "custom":
             if p is None:
