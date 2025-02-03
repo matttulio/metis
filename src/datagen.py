@@ -10,8 +10,8 @@ class Equations:
         self,
         n_vars,
         n_eqs,
-        max_addends,
-        max_multiplicands,
+        bounds_addends,
+        bounds_multiplicands,
         non_lins,
         sym_non_lins=None,
         distribution="uniform",
@@ -27,8 +27,8 @@ class Equations:
         Parameters:
         n_vars: number of variables of the system;
         n_eqs: number of equations to generate;
-        max_addends: max number of addends in each equation;
-        max_multiplicands: max number of multiplicands in each addend;
+        bounds_addends: bounds on the number of addends in each equation;
+        bounds_multiplicands: bounds on the number of multiplicands in each addend;
         non_lins: list of all the possible non-linearities;
         sym_non_lins: list of the symbolic expressions of the non-linearities;
         distribution: type of distribution to use for variable probabilities ('uniform', 'beta', 'lognormal', 'custom');
@@ -60,13 +60,13 @@ class Equations:
 
         # Number of addends for each equation
         self.n_addends = jax.random.randint(
-            key, shape=(n_eqs,), minval=1, maxval=max_addends + 1
+            key, shape=(n_eqs,), minval=bounds_addends[0], maxval=bounds_addends[1] + 1
         )
         total_addends = jnp.sum(self.n_addends)
 
         # Number of multiplicands for each addend
-        minval = jnp.ones(total_addends)
-        maxval = jnp.ones(total_addends) * max_multiplicands + 1
+        minval = jnp.ones(total_addends) * bounds_multiplicands[0]
+        maxval = jnp.ones(total_addends) * bounds_multiplicands[1] + 1
         subkey = jax.random.split(key, total_addends)
         self.n_multiplicands = jax.vmap(generate_random_number, out_axes=1)(
             subkey, minval, maxval
@@ -201,10 +201,10 @@ class Equations:
 
         # Initialize the equations tensor, and its mask for future updates
         self.equations = jnp.ones(
-            (n_eqs, max_addends, max_multiplicands, self.n_nls), dtype=float
+            (n_eqs, bounds_addends[1], bounds_multiplicands[1], self.n_nls), dtype=float
         )
         eqs_mask = jnp.zeros(
-            (n_eqs, max_addends, max_multiplicands, self.n_nls), dtype=bool
+            (n_eqs, bounds_addends[1], bounds_multiplicands[1], self.n_nls), dtype=bool
         )
         eqs_mask = eqs_mask.at[
             eqs_idxs, addend_idxs, mult_idxs, self.static_nls_indices

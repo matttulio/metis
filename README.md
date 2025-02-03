@@ -45,13 +45,13 @@ To use the `Equations` class from `datagen.py`, you need to provide the followin
    - Number of equations to generate
    - Example: `n_eqs = 3` to generate a system of three equations
 
-3. `max_addends` (int):
-   - Maximum number of addends in each equation
-   - Example: `max_addends = 3` means each equation can have up to 3 terms added together
+3. `bounds_addends` (int):
+   - Bounds on the number of addends in each equation
+   - Example: `bounds_addends = (2, 3)` means each equation can have at least 2, and up to 3 terms added together
 
-4. `max_multiplicands` (int):
-   - Maximum number of multiplicands in each addend
-   - Example: `max_multiplicands = 2` means each term can have up to 2 factors multiplied together
+4. `bounds_multiplicands` (int):
+   - Bounds on the number of multiplicands in each addend
+   - Example: `bounds_multiplicands = (1, 2)` means each term can have at least 1, and up to 2 factors multiplied together
 
 5. `non_lins` (tuple of functions):
    - List of all possible non-linear functions to use
