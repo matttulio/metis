@@ -10,6 +10,7 @@ Metis is named after the Greek Oceanid symbol of wisdom and deep thought. In myt
 - [Folder Structure](#folder-structure)
 - [Generating the equations](#generating-the-equations)
 - [Saving the symbolic expressions](#saving-the-symbolic-expressions)
+- [Visualizing the system](#visualizing-the-system)
 
 ## Installation
 The conda environment related to this work can be installed using:
@@ -138,3 +139,17 @@ The `save_symb_expr` function is used to generate and save the symbolic expressi
 ```python
 system.save_symb_expr(filename="equations_symbolic.pdf", max_eq_per_page=30)
 ```
+
+## Visualizing the system
+
+The `show_graph` method is used to visualize the structure of the generated system of equations. This method creates a graphical representation of the equations in a hierarchical manner, showing the relationships between variables and functions.
+
+### Usage
+
+To use the `show_graph` method, simply call it on an instance of the `Equations` class. For example:
+
+```python
+system.show_graph()
+```
+
+This will generate and display the graph of the system of equations. The smaller circle consists of all the variables, while the middle circle consists of functions that depend on the variables but do not contain other functions. The outer layer consists of functions that depend on other functions.

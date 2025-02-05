@@ -223,6 +223,19 @@ class Equations:
             self.variables_indices,
         )
 
+        # Create the symbolic equations
+        self.sym_sys = []
+        k = 0
+        for eq in range(self.n_eqs):
+            sym_expr = rf"f_{{{eq+1}}} = "
+            for _ in range(self.n_addends[eq]):
+                for _ in range(self.n_multiplicands[0, k]):
+                    sym_expr += rf"{self.sym_non_lins[self.nls_indices[k]]}(y_{{{self.variables_indices[k]+1}}})"
+                    k += 1
+                sym_expr += " + "
+            sym_expr = sym_expr[:-3]
+            self.sym_sys.append(sym_expr)
+
     # Function that will be called by the integrator
     def __call__(self, t=None, y=None):
         target_values = get_target_values(y, self.target_var_idxs)
@@ -257,23 +270,13 @@ class Equations:
         plt.style.use("science")
         plt.rcParams["text.usetex"] = True
 
-        sym_sys = []
-        k = 0
-        for eq in range(self.n_eqs):
-            sym_expr = rf"f_{{{eq+1}}} = "
-            for _ in range(self.n_addends[eq]):
-                for _ in range(self.n_multiplicands[0, k]):
-                    sym_expr += rf"{self.sym_non_lins[self.nls_indices[k]]}(y_{{{self.variables_indices[k]+1}}})"
-                    k += 1
-                sym_expr += " + "
-            sym_expr = sym_expr[:-3]
-            sym_sys.append(sym_expr)
-
         with PdfPages(filename) as pdf:
-            for i in range(0, len(sym_sys), max_eq_per_page):
+            for i in range(0, len(self.sym_sys), max_eq_per_page):
                 fig, ax = plt.subplots(figsize=(8.27, 11.69))  # A4 size in inches
                 ax.axis("off")
-                text = "\n".join([f"${eq}$" for eq in sym_sys[i : i + max_eq_per_page]])
+                text = "\n".join(
+                    [f"${eq}$" for eq in self.sym_sys[i : i + max_eq_per_page]]
+                )
                 ax.text(
                     0.1,
                     0.9,
@@ -288,6 +291,149 @@ class Equations:
         print(f"PDF saved as {filename}")
         plt.clf()
         plt.rcdefaults()
+
+        del scienceplots
+        del plt
+        del PdfPages
+
+    def show_graph(self):
+        import networkx as nx
+        import matplotlib.pyplot as plt
+        import scienceplots
+
+        plt.style.use("science")
+
+        new_wave = self.sym_sys.copy()
+
+        for n, eq in zip(range(self.n_eqs), self.sym_sys):
+            new_wave[n] = eq.removeprefix(f"f_{{{n+1}}} = ")
+
+        dependencies = []
+
+        for s, f in zip(range(self.n_eqs), new_wave):
+            temp = f"f_{{{s+1}}} "
+            for n, eq in zip(range(self.n_eqs), new_wave):
+                if eq in f and f != eq:
+                    temp += f"f_{{{n+1}}} "
+                    new_wave[s] = new_wave[s].replace(eq, f"f_{{{n+1}}}")
+
+                if f"y_{{{n+1}}}" in f:
+                    temp += f"y_{{{n+1}}} "
+
+            dependencies.append(temp)
+
+        # Create an undirected graph
+        G = nx.Graph()
+
+        # Parse the dependencies
+        for item in dependencies:
+            tokens = item.split()
+            if not tokens:
+                continue
+            target_node = tokens[0]
+            G.add_node(target_node)
+
+            for source_node in tokens[1:]:
+                G.add_node(source_node)
+                G.add_edge(source_node, target_node)
+
+        # Categorize nodes into layers
+        y_nodes = {node for node in G.nodes if node.startswith("y")}
+        f_nodes = {node for node in G.nodes if node.startswith("f")}
+
+        # f_nodes that have at least one y_node as a neighbor but NO f_node as a neighbor
+        f_dependent_on_y = {
+            f
+            for f in f_nodes
+            if any(neigh in y_nodes for neigh in G.neighbors(f))
+            and not any(neigh in f_nodes for neigh in G.neighbors(f))
+        }
+
+        # f_nodes that have at least one f_node as a neighbor (can also depend on y_nodes)
+        f_dependent_on_f = f_nodes - f_dependent_on_y
+
+        # Assign positions in concentric circles
+        def assign_positions(nodes, radius, center=(0, 0)):
+            if not nodes:  # Check if the list of nodes is empty
+                return {}
+            angle_step = 2 * jnp.pi / len(nodes)
+            positions = {}
+            for i, node in enumerate(nodes):
+                angle = i * angle_step
+                x = center[0] + radius * jnp.cos(angle)
+                y = center[1] + radius * jnp.sin(angle)
+                positions[node] = (x, y)
+            return positions
+
+        # Bottom layer (y variables)
+        pos = assign_positions(
+            sorted(y_nodes, key=lambda v: int(v.split("_")[1].strip("{}"))), radius=1
+        )
+        y_color = "#d9ed92"
+
+        # Middle layer (first-level functions)
+        pos.update(
+            assign_positions(
+                sorted(
+                    f_dependent_on_y, key=lambda v: int(v.split("_")[1].strip("{}"))
+                ),
+                radius=2,
+            )
+        )
+        f_y_color = "#76c893"
+
+        # Top layer (higher-level functions)
+        pos.update(
+            assign_positions(
+                sorted(
+                    f_dependent_on_f, key=lambda v: int(v.split("_")[1].strip("{}"))
+                ),
+                radius=3,
+            )
+        )
+        f_f_color = "#168aad"
+
+        plt.figure(figsize=(14, 8))
+
+        # Draw nodes with different colors
+        nx.draw_networkx_nodes(
+            G,
+            pos,
+            nodelist=y_nodes,
+            node_size=300,
+            node_color=y_color,
+            edgecolors="black",
+        )
+        nx.draw_networkx_nodes(
+            G,
+            pos,
+            nodelist=f_dependent_on_y,
+            node_size=300,
+            node_color=f_y_color,
+            edgecolors="black",
+        )
+        nx.draw_networkx_nodes(
+            G,
+            pos,
+            nodelist=f_dependent_on_f,
+            node_size=300,
+            node_color=f_f_color,
+            edgecolors="black",
+        )
+
+        # Draw edges
+        nx.draw_networkx_edges(
+            G, pos, edgelist=G.edges, edge_color="#00171f", alpha=0.7
+        )
+
+        plt.title("Visualisation as Graph", fontsize=14)
+        plt.axis("off")
+        plt.show()
+        plt.clf()
+
+        del nx
+        del plt
+        del scienceplots
 
 
 # Function that gets the sublists of values in the specified order
