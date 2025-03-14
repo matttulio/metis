@@ -8,6 +8,7 @@ from typing import Sequence, Callable
 
 
 class CustomActivation(nn.Module):
+    input_dim: int
     L: int  # Number of groups of shared parameters
 
     def setup(self):
@@ -18,9 +19,11 @@ class CustomActivation(nn.Module):
             "gamma", lambda rng, shape=(3, self.L): random.normal(rng, shape)
         )
 
-    def __call__(self, x):
-        group_idx = jnp.arange(x.shape[-1]) % self.L  # Assign each unit to a group
+        self.group_idx = (
+            jnp.arange(self.input_dim) % self.L
+        )  # Assign each unit to a group
 
+    def __call__(self, x):
         @jit
         def activation(x, alpha, gamma):
             return (
@@ -33,7 +36,7 @@ class CustomActivation(nn.Module):
         return jnp.stack(
             [
                 activation(x[:, i], self.alpha[:, g], self.gamma[:, g])
-                for i, g in enumerate(group_idx)
+                for i, g in enumerate(self.group_idx)
             ],
             axis=-1,
         )
@@ -98,7 +101,7 @@ class ZeroLayersNN(nn.Module):
     output_dim: int
 
     def setup(self):
-        self.custom_activation = CustomActivation(self.L)
+        self.custom_activation = CustomActivation(self.N, self.L)
         self.output_layer = nn.Dense(self.output_dim)
 
     def __call__(self, x):
