@@ -98,7 +98,7 @@ class ZeroLayersNN(nn.Module):
     output_dim: int
 
     def setup(self):
-        self.custom_activation = CustomActivation(self.N * self.L)
+        self.custom_activation = CustomActivation(self.L)
         self.output_layer = nn.Dense(self.output_dim)
 
     def __call__(self, x):
