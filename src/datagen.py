@@ -44,7 +44,6 @@ class Equations:
 
         if sym_non_lins is None:
             self.sym_non_lins = [f"nl_{i+1}" for i in range(self.n_nls)]
-            print(self.sym_non_lins)
         else:
             self.sym_non_lins = sym_non_lins
 
@@ -468,6 +467,4 @@ def map_results(output, results, a_and_b):
 # Function that collapses the tensor to get the final results
 @jax.jit
 def collapse(matrix):
-    product_along_axis3 = jnp.prod(matrix, axis=3)
-    result_per_equation = jnp.prod(product_along_axis3, axis=2)
-    return jnp.sum(result_per_equation, axis=1)
+    return jnp.sum(jnp.prod(jnp.prod(matrix, axis=3), axis=2), axis=1)
