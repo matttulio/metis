@@ -139,14 +139,21 @@ def create_batches(inputs, outputs, batch_size, seed=42):
     shuffled_indices = random.permutation(key, indices)
 
     num_batches = num_samples // batch_size
-    batches = [
-        (
-            jnp.array(inputs[shuffled_indices[i * batch_size : (i + 1) * batch_size]]),
-            jnp.array(outputs[shuffled_indices[i * batch_size : (i + 1) * batch_size]]),
-        )
+    batches_x = [
+        jnp.array(inputs[shuffled_indices[i * batch_size : (i + 1) * batch_size]])
         for i in range(num_batches)
     ]
-    return batches
+
+    batches_x = jnp.array(batches_x)
+
+    batches_y = [
+        jnp.array(outputs[shuffled_indices[i * batch_size : (i + 1) * batch_size]])
+        for i in range(num_batches)
+    ]
+
+    batches_y = jnp.array(batches_y)
+
+    return tuple([batches_x, batches_y])
 
 
 @partial(jit, static_argnums=(1))
@@ -155,12 +162,26 @@ def loss_fn(params, apply_fn, batch_x, batch_y):
     return jnp.mean((predictions - batch_y) ** 2)
 
 
-@jit
-def evaluate(state, test_batches):
-    total_loss = 0
-    for batch_x, batch_y in test_batches:
-        total_loss += loss_fn(state.params, state.apply_fn, batch_x, batch_y)
+# @jit
+def evaluate(carry):
+    state, test_batches = carry
+    total_loss = 0.0
+
+    def batch_step(carry, batch):
+        state, total_loss = carry
+        batch_x, batch_y = batch
+        loss = eval_step(state, batch_x, batch_y)
+
+        return (state, total_loss + loss), None  # Carry updated state, discard output
+
+    (state, total_loss), _ = lax.scan(batch_step, (state, 0.0), test_batches)
     return total_loss / len(test_batches)
+
+
+@jit
+def eval_step(state, test_batch_x, test_batch_y):
+    total_loss = loss_fn(state.params, state.apply_fn, test_batch_x, test_batch_y)
+    return total_loss
 
 
 @jit
