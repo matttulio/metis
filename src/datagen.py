@@ -1,25 +1,16 @@
 import jax
 import jax.numpy as jnp
 from functools import partial
-from scipy.integrate import solve_ivp
 import os
+import hashlib
+import json
+import cloudpickle
 
 
 class Equations:
     def __init__(
         self,
-        n_vars,
-        n_eqs,
-        bounds_addends,
-        bounds_multiplicands,
-        non_lins,
-        sym_non_lins=None,
-        distribution="uniform",
-        a=None,
-        b=None,
-        sigma=None,
-        p=None,
-        seed=42,
+        config: dict,
     ):
         """
         Initialize equations generator.
@@ -36,21 +27,92 @@ class Equations:
         seed: seed for reproducibility.
         """
 
-        # Initialize parameters
-        self.n_vars = n_vars
-        self.n_eqs = n_eqs
-        self.non_lins = non_lins
-        self.n_nls = len(non_lins)
+        # Define required keys
+        required_keys = {
+            "n_vars",
+            "n_eqs",
+            "bounds_addends",
+            "bounds_multiplicands",
+            "non_lins",
+        }
 
-        if sym_non_lins is None:
+        # Raise error if any required key is missing
+        missing_keys = required_keys - config.keys()
+
+        if missing_keys:
+            raise ValueError(f"Missing required keys: {', '.join(missing_keys)}")
+
+        # Default configuration
+        defaults = {
+            "sym_non_lins": None,
+            "distribution": "uniform",
+            "a": None,
+            "b": None,
+            "sigma": None,
+            "p": None,
+            "seed": 42,
+        }
+
+        self.config = {**defaults, **config}
+
+        self.save_dir = "Data"
+        if not os.path.exists(self.save_dir):
+            os.makedirs(self.save_dir)
+            print(f"Directory {self.save_dir} created.")
+
+        self.filename = self.__get_unique_name_from_config()
+
+        if os.path.exists(os.path.join(self.save_dir, self.filename + ".pkl")):
+            self.__load_system()
+        else:
+            self.system = self.__generate_system()
+            self.__save_system()
+
+    def __save_system(self):
+        try:
+            # Save the system and the entire state (self) to a file
+            with open(os.path.join(self.save_dir, self.filename + ".pkl"), "wb") as f:
+                # Include 'self' in the saved state (can store all relevant instance variables)
+                cloudpickle.dump(self, f)
+            print(
+                f"System and state saved as {self.filename+'.pkl'} in directory {self.save_dir}"
+            )
+        except Exception as e:
+            print(f"Error saving the system: {e}")
+
+    def __load_system(self):
+        # Load the system and state from a file (restore the entire object)
+        if os.path.exists(os.path.join(self.save_dir, self.filename + ".pkl")):
+            try:
+                with open(
+                    os.path.join(self.save_dir, self.filename + ".pkl"), "rb"
+                ) as f:
+                    loaded_obj = cloudpickle.load(f)
+                    # Restore the instance's state
+                    self.__dict__ = (
+                        loaded_obj.__dict__
+                    )  # This copies all instance variables
+                print(f"System and state loaded from {self.filename+'.pkl'}")
+            except Exception as e:
+                print(f"Error loading the system: {e}")
+                self.system = None  # Set to None if loading fails
+        else:
+            print(f"No saved system found. Generating a new one.")
+
+    def __generate_system(self):
+        # Initialize parameters
+        for key, value in {**self.config}.items():
+            setattr(self, key, value)
+
+        if self.sym_non_lins is None:
             self.sym_non_lins = [f"nl_{i+1}" for i in range(self.n_nls)]
         else:
-            self.sym_non_lins = sym_non_lins
+            self.sym_non_lins = self.sym_non_lins
 
-        self.seed = seed
+        self.n_nls = len(self.non_lins)
 
         # Generate a key for reproducibility
-        key = jax.random.key(seed)
+        key = jax.random.key(self.seed)
 
         # Function that creates random numbers
         @jax.jit
@@ -59,13 +121,16 @@ class Equations:
 
         # Number of addends for each equation
         self.n_addends = jax.random.randint(
-            key, shape=(n_eqs,), minval=bounds_addends[0], maxval=bounds_addends[1] + 1
+            key,
+            shape=(self.n_eqs,),
+            minval=self.bounds_addends[0],
+            maxval=self.bounds_addends[1] + 1,
         )
         total_addends = jnp.sum(self.n_addends)
 
         # Number of multiplicands for each addend
-        minval = jnp.ones(total_addends) * bounds_multiplicands[0]
-        maxval = jnp.ones(total_addends) * bounds_multiplicands[1] + 1
+        minval = jnp.ones(total_addends) * self.bounds_multiplicands[0]
+        maxval = jnp.ones(total_addends) * self.bounds_multiplicands[1] + 1
         subkey = jax.random.split(key, total_addends)
         self.n_multiplicands = jax.vmap(generate_random_number, out_axes=1)(
             subkey, minval, maxval
@@ -84,28 +149,28 @@ class Equations:
         )  # static versio used in jit compiled functions
 
         # Variable index for each non-linearity
-        maxval = jnp.ones(self.total_multiplicands) * n_vars
+        maxval = jnp.ones(self.total_multiplicands) * self.n_vars
         subkey = jax.random.split(subkey[0], self.total_multiplicands)
         p_key, subkey = jax.random.split(subkey[0])
 
-        if distribution == "uniform":
-            p = jax.random.uniform(p_key, shape=(n_vars,))
+        if self.distribution == "uniform":
+            p = jax.random.uniform(p_key, shape=(self.n_vars,))
             p = p / jnp.sum(p)
-        elif distribution == "beta":
-            if a is None or b is None:
+        elif self.distribution == "beta":
+            if self.a is None or self.b is None:
                 raise ValueError(
                     "Parameters 'a' and 'b' must be provided for beta distribution."
                 )
-            p = jax.random.beta(p_key, a=a, b=b, shape=(n_vars,))
+            p = jax.random.beta(p_key, a=self.a, b=self.b, shape=(self.n_vars,))
             p = p / jnp.sum(p)
-        elif distribution == "lognormal":
-            if sigma is None:
+        elif self.distribution == "lognormal":
+            if self.sigma is None:
                 raise ValueError(
                     "Parameter 'sigma' must be provided for lognormal distribution."
                 )
-            p = jax.random.lognormal(p_key, shape=(n_vars,), sigma=sigma)
+            p = jax.random.lognormal(p_key, shape=(self.n_vars,), sigma=self.sigma)
             p = p / jnp.sum(p)
-        elif distribution == "custom":
+        elif self.distribution == "custom":
             if p is None:
                 raise ValueError(
                     "The probabilities p must be provided when using custom distribution."
@@ -118,7 +183,7 @@ class Equations:
 
         # Generate variables_indices based on the probabilities p
         self.variables_indices = jax.random.choice(
-            subkey, n_vars, shape=(self.total_multiplicands,), p=p
+            subkey, self.n_vars, shape=(self.total_multiplicands,), p=p
         )
 
         # Convert the lists of lists into a list
@@ -185,7 +250,7 @@ class Equations:
 
         multiplicand_index = 0
 
-        for eq in range(n_eqs):
+        for eq in range(self.n_eqs):
             for addend in range(self.n_addends[eq]):
                 num_multiplicands = self.n_multiplicands[0, multiplicand_index]
                 for mult in range(num_multiplicands):
@@ -200,10 +265,22 @@ class Equations:
 
         # Initialize the equations tensor, and its mask for future updates
         self.equations = jnp.ones(
-            (n_eqs, bounds_addends[1], bounds_multiplicands[1], self.n_nls), dtype=float
+            (
+                self.n_eqs,
+                self.bounds_addends[1],
+                self.bounds_multiplicands[1],
+                self.n_nls,
+            ),
+            dtype=float,
         )
         eqs_mask = jnp.zeros(
-            (n_eqs, bounds_addends[1], bounds_multiplicands[1], self.n_nls), dtype=bool
+            (
+                self.n_eqs,
+                self.bounds_addends[1],
+                self.bounds_multiplicands[1],
+                self.n_nls,
+            ),
+            dtype=bool,
         )
         eqs_mask = eqs_mask.at[
             eqs_idxs, addend_idxs, mult_idxs, self.static_nls_indices
@@ -256,9 +333,48 @@ class Equations:
     def __getitem__(self, idx):
         return self.equations[idx]
 
+    def __filter_config(self):
+        filtered_config = {}
+        for key, value in self.config.items():
+            if isinstance(value, tuple):  # Convert tuples of functions to names
+                filtered_config[key] = tuple(self.__get_callable_name(v) for v in value)
+            elif callable(value):  # Replace single functions with their name
+                filtered_config[key] = self.__get_callable_name(value)
+            elif isinstance(value, dict):  # Recursively process nested dictionaries
+                filtered_config[key] = self.__filter_config(value)
+            else:
+                filtered_config[key] = value
+        return filtered_config
+
+    def __get_callable_name(self, value):
+        if callable(value):
+            # Try to get the name of the callable, otherwise use a fallback
+            try:
+                return value.__name__
+            except AttributeError:
+                return str(value)  # If no __name__, return the string representation
+        return value  # Not callable, return the original value
+
+    def __get_unique_name_from_config(self):
+        # Filter out non-deterministic or non-serializable elements
+        filtered_config = self.__filter_config()
+
+        # Convert the filtered dictionary to a JSON string with sorted keys
+        config_string = json.dumps(filtered_config, sort_keys=True)
+
+        # Generate a hash from the string representation
+        config_hash = hashlib.md5(config_string.encode()).hexdigest()
+
+        # Use the hash to create a unique filename
+        filename = f"equations_{config_hash}"
+        return filename
+
     # Create the PDF with the symbolic equations
-    def save_symb_expr(self, filename="equations.pdf", max_eq_per_page=35):
-        if os.path.exists(os.path.join(filename)):
+    def save_symb_expr(self, filename=None, max_eq_per_page=35):
+        if filename is None:
+            filename = self.filename + "_symbolic.pdf"
+
+        if os.path.exists(os.path.join(self.save_dir, filename)):
             print("PDF already exists")
             return
 
@@ -269,7 +385,7 @@ class Equations:
         plt.style.use("science")
         plt.rcParams["text.usetex"] = True
 
-        with PdfPages(filename) as pdf:
+        with PdfPages(os.path.join(self.save_dir, filename)) as pdf:
             for i in range(0, len(self.sym_sys), max_eq_per_page):
                 fig, ax = plt.subplots(figsize=(8.27, 11.69))  # A4 size in inches
                 ax.axis("off")
