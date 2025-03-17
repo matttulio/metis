@@ -21,6 +21,7 @@ class Equations:
         bounds_addends: bounds on the number of addends in each equation;
         bounds_multiplicands: bounds on the number of multiplicands in each addend;
         non_lins: list of all the possible non-linearities;
+        save_dir: directory where to save the system;
         sym_non_lins: list of the symbolic expressions of the non-linearities;
         distribution: type of distribution to use for variable probabilities ('uniform', 'beta', 'lognormal', 'custom');
         p: custom probabilities for the variables (used only if distribution is 'custom');
@@ -44,6 +45,7 @@ class Equations:
 
         # Default configuration
         defaults = {
+            "save_dir": "Data",
             "sym_non_lins": None,
             "distribution": "uniform",
             "a": None,
@@ -55,7 +57,7 @@ class Equations:
 
         self.config = {**defaults, **config}
 
-        self.save_dir = "Data"
+        self.save_dir = self.config["save_dir"]
         if not os.path.exists(self.save_dir):
             os.makedirs(self.save_dir)
             print(f"Directory {self.save_dir} created.")
