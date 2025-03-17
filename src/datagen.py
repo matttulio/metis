@@ -5,6 +5,10 @@ import os
 import hashlib
 import json
 import cloudpickle
+from matplotlib.backends.backend_pdf import PdfPages
+import scienceplots
+import matplotlib.pyplot as plt
+import networkx as nx
 
 
 class Equations:
@@ -106,12 +110,12 @@ class Equations:
         for key, value in {**self.config}.items():
             setattr(self, key, value)
 
+        self.n_nls = len(self.non_lins)
+
         if self.sym_non_lins is None:
             self.sym_non_lins = [f"nl_{i+1}" for i in range(self.n_nls)]
         else:
             self.sym_non_lins = self.sym_non_lins
-
-        self.n_nls = len(self.non_lins)
 
         # Generate a key for reproducibility
         key = jax.random.key(self.seed)
@@ -380,10 +384,6 @@ class Equations:
             print("PDF already exists")
             return
 
-        from matplotlib.backends.backend_pdf import PdfPages
-        import scienceplots
-        import matplotlib.pyplot as plt
-
         plt.style.use("science")
         plt.rcParams["text.usetex"] = True
 
@@ -407,17 +407,9 @@ class Equations:
                 plt.close(fig)
         print(f"PDF saved as {filename}")
         plt.clf()
-        plt.rcdefaults()
-
-        del scienceplots
-        del plt
-        del PdfPages
+        plt.close()
 
     def show_graph(self):
-        import networkx as nx
-        import matplotlib.pyplot as plt
-        import scienceplots
-
         plt.style.use("science")
 
         new_wave = self.sym_sys.copy()
@@ -547,10 +539,7 @@ class Equations:
         plt.axis("off")
         plt.show()
         plt.clf()
-
-        del nx
-        del plt
-        del scienceplots
+        plt.close()
 
 
 # Function that gets the sublists of values in the specified order
