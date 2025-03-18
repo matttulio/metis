@@ -201,7 +201,7 @@ class Equations:
         # Get the idxs of the variables to which apply the nls
         self.target_var_idxs = [
             jnp.unique(self.variables_indices[self.nls_indices == idx])
-            for idx in unique_nls_idx
+            for idx in range(self.n_nls)
         ]
 
         number_ops = sum(
@@ -226,6 +226,7 @@ class Equations:
 
         # Create a mask for each variable
         mask_vars = jnp.zeros((number_ops, self.total_multiplicands), dtype=bool)
+
         k = 0
         for i in range(self.n_nls):
             for _, val in enumerate(self.target_var_idxs[i]):
