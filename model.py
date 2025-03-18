@@ -162,7 +162,7 @@ def loss_fn(params, apply_fn, batch_x, batch_y):
     return jnp.mean((predictions - batch_y) ** 2)
 
 
-# @jit
+@jit
 def evaluate(carry):
     state, test_batches = carry
     total_loss = 0.0
@@ -170,11 +170,13 @@ def evaluate(carry):
     def batch_step(carry, batch):
         state, total_loss = carry
         batch_x, batch_y = batch
+
         loss = eval_step(state, batch_x, batch_y)
 
         return (state, total_loss + loss), None  # Carry updated state, discard output
 
     (state, total_loss), _ = lax.scan(batch_step, (state, 0.0), test_batches)
+
     return total_loss / len(test_batches)
 
 
@@ -190,7 +192,7 @@ def train_step(state, batch_x, batch_y):
         state.params, state.apply_fn, batch_x, batch_y
     )
     state = state.apply_gradients(grads=grads)
-    return state, loss
+    return state, loss / len(batch_x)
 
 
 @partial(jit, static_argnums=(1))
