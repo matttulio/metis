@@ -9,37 +9,32 @@ from typing import Sequence, Callable
 
 class CustomActivation(nn.Module):
     input_dim: int
-    L: int  # Number of groups of shared parameters
+    L: int  # Number of parameter groups
 
     def setup(self):
-        self.alpha = self.param(
-            "alpha", lambda rng, shape=(3, self.L): random.normal(rng, shape)
-        )
-        self.gamma = self.param(
-            "gamma", lambda rng, shape=(3, self.L): random.normal(rng, shape)
-        )
+        self.alpha = self.param("alpha", nn.initializers.normal(), (3, self.L))
+        self.gamma = self.param("gamma", nn.initializers.normal(), (3, self.L))
 
-        self.group_idx = (
-            jnp.arange(self.input_dim) % self.L
-        )  # Assign each unit to a group
+        # Precompute group indices
+        self.group_indices = jnp.arange(self.input_dim) % self.L
 
     def __call__(self, x):
-        @jit
-        def activation(x, alpha, gamma):
-            return (
-                alpha[0] * nn.relu(x + gamma[0])
-                + alpha[1] * nn.relu(x + gamma[1])
-                + alpha[2] * nn.relu(x + gamma[2])
-            )
+        # Gather parameters for all input dimensions (3, input_dim)
+        alpha = self.alpha[:, self.group_indices]
+        gamma = self.gamma[:, self.group_indices]
 
-        # Apply activation using the correct group parameters
-        return jnp.stack(
-            [
-                activation(x[:, i], self.alpha[:, g], self.gamma[:, g])
-                for i, g in enumerate(self.group_idx)
-            ],
-            axis=-1,
-        )
+        # Reshape for broadcasting: (3, D) -> (1, D, 3)
+        alpha = jnp.moveaxis(alpha, 0, -1)[None, ...]  # Add batch dim
+        gamma = jnp.moveaxis(gamma, 0, -1)[None, ...]  # Add batch dim
+
+        # Expand x for broadcasting: (B, D) -> (B, D, 1)
+        x_expanded = jnp.expand_dims(x, axis=-1)
+
+        # Vectorized computation (B, D, 1) + (1, D, 3) -> (B, D, 3)
+        activated = alpha * nn.relu(x_expanded + gamma)
+
+        # Sum over the 3 terms (B, D, 3) -> (B, D)
+        return jnp.sum(activated, axis=-1)
 
 
 # Custom initializer for binary weights (0 or 1)
@@ -100,14 +95,12 @@ class ZeroLayersNN(nn.Module):
     L: int
     output_dim: int
 
-    def setup(self):
-        self.custom_activation = CustomActivation(self.N, self.L)
-        self.output_layer = nn.Dense(self.output_dim)
-
+    @nn.compact
     def __call__(self, x):
-        x = self.custom_activation(x)
-        x = self.output_layer(x)
-        return x
+        # Vectorized custom activation
+        x = CustomActivation(self.N, self.L)(x)
+        # Final dense layer
+        return nn.Dense(self.output_dim)(x)
 
 
 class DiscreteNN(nn.Module):
