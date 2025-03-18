@@ -216,3 +216,12 @@ def train_step_mixed(state, batch_x, batch_y, learned_vecs, true_vecs):
     )
     state = state.apply_gradients(grads=grads)
     return state, loss
+
+
+def count_params(params):
+    total_params = 0
+    for _, layer_params in params.items():
+        for _, param_value in layer_params.items():
+            # Add the number of elements in the array to the total
+            total_params += param_value.size
+    return total_params
