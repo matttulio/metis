@@ -173,11 +173,14 @@ def evaluate(carry):
 
         loss = eval_step(state, batch_x, batch_y)
 
-        return (state, total_loss + loss), None  # Carry updated state, discard output
+        return (
+            state,
+            total_loss + (loss / len(batch_x)),
+        ), None  # Carry updated state, discard output
 
     (state, total_loss), _ = lax.scan(batch_step, (state, 0.0), test_batches)
 
-    return total_loss / len(test_batches[0])
+    return total_loss
 
 
 @jit
