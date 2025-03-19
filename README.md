@@ -13,14 +13,30 @@ Metis is named after the Greek Oceanid symbol of wisdom and deep thought. In myt
 - [Visualizing the system](#visualizing-the-system)
 
 ## Installation
+
+### Cloning the Repository
+To get started, clone the repository using the following command:
+```bash
+   git clone https://github.com/your-username/metis.git
+   cd metis
+```
+
+### Creating environment
 The conda environment related to this work can be installed using:
 ```bash
-  conda env create -f metis_env.yaml
+   conda env create -f metis_env.yaml
 ```
 or, if one uses the mamba package manager:
 ```bash
-  mamba env create -f metis_env.yaml
+   mamba env create -f metis_env.yaml
 ```
+
+### Installing Pre-commit Hooks
+To ensure code quality and consistency, install the pre-commit hooks:
+```bash
+   pre-commit install
+```
+This will automatically run checks on your code before committing changes.
 
 ## Folder Structure
 The repository is organized as follows:
