@@ -149,22 +149,30 @@ def create_batches(inputs, outputs, batch_size, seed=42):
     return tuple([batches_x, batches_y])
 
 
-@partial(jit, static_argnums=(1))
-def loss_fn(params, apply_fn, batch_x, batch_y):
-    predictions = apply_fn(params, batch_x)
-    return jnp.mean((predictions - batch_y) ** 2)
+@partial(jit, static_argnums=3)
+def eval_step(state, test_batch_x, test_batch_y, loss_fn):
+    total_loss = loss_fn(state.params, state.apply_fn, test_batch_x, test_batch_y)
+    return total_loss
 
 
-@jit
-def evaluate(carry):
-    state, test_batches = carry
+@partial(jit, static_argnums=3)
+def train_step(state, batch_x, batch_y, loss_fn):
+    loss, grads = value_and_grad(loss_fn)(
+        state.params, state.apply_fn, batch_x, batch_y
+    )
+    state = state.apply_gradients(grads=grads)
+    return state, loss / len(batch_x)
+
+
+@partial(jit, static_argnums=2)
+def evaluate(state, test_batches, loss_fn):
     total_loss = 0.0
 
     def batch_step(carry, batch):
         state, total_loss = carry
         batch_x, batch_y = batch
 
-        loss = eval_step(state, batch_x, batch_y)
+        loss = eval_step(state, batch_x, batch_y, loss_fn)
 
         return (
             state,
@@ -176,46 +184,31 @@ def evaluate(carry):
     return total_loss
 
 
-@jit
-def eval_step(state, test_batch_x, test_batch_y):
-    total_loss = loss_fn(state.params, state.apply_fn, test_batch_x, test_batch_y)
-    return total_loss
+# @partial(jit, static_argnums=(1))
+# def loss_fn_mixed(params, apply_fn, batch_x, batch_y, learned_vecs, true_vecs):
+#     predictions = apply_fn(params, batch_x)
+#     loss_preds = jnp.mean((predictions - batch_y) ** 2)
+#     loss_vecs = jnp.abs(learned_vecs @ true_vecs)
+#     return loss_preds + loss_vecs
 
 
-@jit
-def train_step(state, batch_x, batch_y):
-    loss, grads = value_and_grad(loss_fn)(
-        state.params, state.apply_fn, batch_x, batch_y
-    )
-    state = state.apply_gradients(grads=grads)
-    return state, loss / len(batch_x)
+# @jit
+# def evaluate_mixed(state, test_batches, learned_vecs, true_vecs):
+#     total_loss = 0
+#     for batch_x, batch_y in test_batches:
+#         total_loss += loss_fn_mixed(
+#             state.params, state.apply_fn, batch_x, batch_y, learned_vecs, true_vecs
+#         )
+#     return total_loss / len(test_batches)
 
 
-@partial(jit, static_argnums=(1))
-def loss_fn_mixed(params, apply_fn, batch_x, batch_y, learned_vecs, true_vecs):
-    predictions = apply_fn(params, batch_x)
-    loss_preds = jnp.mean((predictions - batch_y) ** 2)
-    loss_vecs = jnp.abs(learned_vecs @ true_vecs)
-    return loss_preds + loss_vecs
-
-
-@jit
-def evaluate_mixed(state, test_batches, learned_vecs, true_vecs):
-    total_loss = 0
-    for batch_x, batch_y in test_batches:
-        total_loss += loss_fn_mixed(
-            state.params, state.apply_fn, batch_x, batch_y, learned_vecs, true_vecs
-        )
-    return total_loss / len(test_batches)
-
-
-@jit
-def train_step_mixed(state, batch_x, batch_y, learned_vecs, true_vecs):
-    loss, grads = value_and_grad(loss_fn_mixed)(
-        state.params, state.apply_fn, batch_x, batch_y, learned_vecs, true_vecs
-    )
-    state = state.apply_gradients(grads=grads)
-    return state, loss
+# @jit
+# def train_step_mixed(state, batch_x, batch_y, learned_vecs, true_vecs):
+#     loss, grads = value_and_grad(loss_fn_mixed)(
+#         state.params, state.apply_fn, batch_x, batch_y, learned_vecs, true_vecs
+#     )
+#     state = state.apply_gradients(grads=grads)
+#     return state, loss
 
 
 def count_params(params):

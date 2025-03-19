@@ -1,12 +1,15 @@
 repos:
+
+  - repo: https://github.com/mwouts/jupytext
+    rev: v1.14.7  # CURRENT_TAG/COMMIT_HASH
+    hooks:
+    - id: jupytext
+      args: [--sync]
+      files: \.ipynb$
+
   - repo: https://github.com/psf/black
     rev: 23.3.0
     hooks:
       - id: black
         files: \.py$
         
-  - repo: https://github.com/mwouts/jupytext
-    rev: v1.14.7  # CURRENT_TAG/COMMIT_HASH
-    hooks:
-    - id: jupytext
-      args: [--sync]
