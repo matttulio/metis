@@ -10,6 +10,14 @@ repos:
   - repo: https://github.com/psf/black
     rev: 23.3.0
     hooks:
-      - id: black
-        files: \.py$
+    - id: black
+      files: \.py$
         
+
+  - repo: https://github.com/nbQA-dev/nbQA
+    rev: 1.7.1
+    hooks:
+    - id: nbqa
+      args: [black]
+      files: \.ipynb$  # Format .ipynb files
+      additional_dependencies: [black==23.3.0]
