@@ -3,4 +3,5 @@ __pycache__/
 .DS_Store
 src/.DS_Store
 Data/
+Results/
 StandBy.ipynb
