@@ -10,13 +10,34 @@ from typing import Sequence, Callable
 class CustomActivation(nn.Module):
     input_dim: int
     L: int  # Number of parameter groups
+    nls_init: jnp.ndarray | None = None
+    trainable: bool = False
 
     def setup(self):
-        self.alpha = self.param("alpha", nn.initializers.normal(), (3, self.L))
-        self.gamma = self.param("gamma", nn.initializers.normal(), (3, self.L))
+        if self.nls_init is None:
+            self.alpha = self.param("alpha", nn.initializers.normal(), (3, self.L))
+            self.gamma = self.param("gamma", nn.initializers.normal(), (3, self.L))
+        else:
+            # Split nls_init into alpha and gamma parameters
+            assert self.nls_init.shape == (self.L, 6), "nls_init must have shape (L, 6)"
 
-        # Precompute group indices
+            # Extract and transpose to get (3, L) shapes
+            alpha_init = self.nls_init[:, :3].T  # First 3 columns -> (3, L)
+            gamma_init = self.nls_init[:, 3:6].T  # Last 3 columns -> (3, L)
+
+            # Create parameters using the initialization array
+            self.alpha = self.param("alpha", lambda *_: alpha_init)
+            self.gamma = self.param("gamma", lambda *_: gamma_init)
+
+        # Precompute group indices (input_dim must be divisible by L)
+        assert (
+            self.input_dim % self.L == 0
+        ), "input_dim must be divisible by number of groups (L)"
         self.group_indices = jnp.arange(self.input_dim) % self.L
+
+        if not self.trainable:
+            self.alpha = jax.lax.stop_gradient(self.alpha)
+            self.gamma = jax.lax.stop_gradient(self.gamma)
 
     def __call__(self, x):
         # Gather parameters for all input dimensions (3, input_dim)
@@ -94,13 +115,23 @@ class ZeroLayersNN(nn.Module):
     N: int
     L: int
     output_dim: int
+    y_mean: jnp.ndarray | None = None
+    y_std: jnp.ndarray | None = None
+    nls_init: jnp.ndarray | None = None
+    train_activations: bool = False
+
+    def setup(self):
+        # Set default values if not provided
+        if self.y_mean is None:
+            self.y_mean = jnp.zeros((self.output_dim,))
+        if self.y_std is None:
+            self.y_std = jnp.ones((self.output_dim,))
 
     @nn.compact
     def __call__(self, x):
-        # Vectorized custom activation
-        x = CustomActivation(self.N, self.L)(x)
-        # Final dense layer
-        return nn.Dense(self.output_dim)(x)
+        x = CustomActivation(self.N, self.L, self.nls_init, self.train_activations)(x)
+        x = nn.Dense(self.output_dim)(x)
+        return (x - self.y_mean) / self.y_std
 
 
 class DiscreteNN(nn.Module):
