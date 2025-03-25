@@ -4,7 +4,7 @@ repos:
     rev: v1.14.7  # CURRENT_TAG/COMMIT_HASH
     hooks:
     - id: jupytext
-      args: [--sync]
+      args: [--to, ipynb, --sync]
       files: \.ipynb$
 
   - repo: https://github.com/psf/black
