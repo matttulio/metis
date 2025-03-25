@@ -1,0 +1,5 @@
+# .jupytext.toml
+# This file configures how Jupytext works with your notebooks.
+
+# Defines the formats for Jupytext (ipynb, py, markdown, etc.)
+formats = "ipynb,py"  # You can also use "ipynb,md" for notebook and markdown files
