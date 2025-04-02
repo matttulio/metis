@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #SBATCH --job-name=JOB
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=matteo.gallo@phd.units.it
