@@ -2,7 +2,7 @@
 #SBATCH --job-name=JOB
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=matteo.gallo@phd.units.it
-#SBATCH --account=mgallo02
+#SBATCH --account=mgallo02@login03
 #SBATCH --partition=g100_all_serial
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
