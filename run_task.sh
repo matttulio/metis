@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=JOB
 #SBATCH --mail-type=ALL
-#SBATCH --mail-user=Matteo.gallo@phd.units.it
+#SBATCH --mail-user=matteo.gallo@phd.units.it
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --gpus=1
