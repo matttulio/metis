@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=JOB
 #SBATCH --mail-type=ALL
-#SBATCH --mail-user=matteo.gallo@phd.units.its
+#SBATCH --mail-user=matteo.gallo@phd.units.it
+#SBATCH --account=matteo.gallo@phd.units.its
 #SBATCH --partition=g100_all_serial
 #SBATCH --qos=noQOS
 #SBATCH --nodes=1
