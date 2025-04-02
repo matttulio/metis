@@ -2,6 +2,7 @@
 #SBATCH --job-name=JOB
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=matteo.gallo@phd.units.it
+#SBATCH --partition=g100_spc_prod
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --gpus=1
