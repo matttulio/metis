@@ -130,7 +130,7 @@ class ZeroLayersNN(nn.Module):
     @nn.compact
     def __call__(self, x):
         x = CustomActivation(self.N, self.L, self.nls_init, self.train_activations)(x)
-        x = nn.Dense(self.output_dim)(x)
+        x = nn.Dense(self.output_dim, use_bias=False)(x)
         return (x - self.y_mean) / self.y_std
 
 
