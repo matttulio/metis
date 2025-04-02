@@ -7,7 +7,6 @@
 #SBATCH --qos=noQOS
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --gpus=1
 #SBATCH --mem=16G
 #SBATCH --time=2:00:00
 #SBATCH --output=./log_opt/%x.o%A-%a
