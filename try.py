@@ -312,7 +312,7 @@ outofbound_test_batches = create_batches(
     outofbound_test, outofbound_test_outputs, test_batch_size
 )
 
-num_epochs = 101
+num_epochs = 1001
 
 model = ZeroLayersNN(
     N=input_dim,
