@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -A=OGS23_PRACE_IT_0
+#SBATCH -A OGS23_PRACE_IT_0
 #SBATCH --job-name=JOB
 #SBATCH --partition=boost_usr_prod
 #SBATCH --qos=normal
