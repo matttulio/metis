@@ -9,6 +9,9 @@ from typing import Sequence, Callable, List
 from src.datagen import Equations
 from model import train_step, evaluate
 import time
+import os
+
+os.environ["XLA_FLAGS"] = "--xla_gpu_force_compilation_parallelism=1"
 
 
 class TrainState(train_state.TrainState):
