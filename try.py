@@ -10,6 +10,8 @@ from src.datagen import Equations
 from model import train_step, evaluate
 import time
 
+print(jax.devices())
+
 
 class TrainState(train_state.TrainState):
     pass
