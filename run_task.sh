@@ -3,7 +3,9 @@
 #SBATCH --job-name=JOB
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=matteo.gallo@phd.units.it
+#SBATCH --partition=lrd_all_serial
 #SBATCH --qos=noQOS
+#SBATCH --gres=gpu:1
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --mem=16G
