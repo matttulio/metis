@@ -12,6 +12,9 @@ import time
 
 print(jax.devices())
 
+x = jnp.ones(1000)  # Create array on GPU
+print(x.device)  # Should show `CudaDevice(id=0)`
+
 
 class TrainState(train_state.TrainState):
     pass
