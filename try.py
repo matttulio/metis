@@ -10,10 +10,7 @@ from src.datagen import Equations
 from model import train_step, evaluate
 import time
 
-print(jax.devices())
-
-x = jnp.ones(1000)  # Create array on GPU
-print(x.device)  # Should show `CudaDevice(id=0)`
+jax.config.update("jax_enable_x64", True)
 
 
 class TrainState(train_state.TrainState):
@@ -147,7 +144,7 @@ def generate_alphabeta(dim, num, seed):
         key, (max(num, dim), num)
     )  # Generate (max(num, dim), num)) random matrix
     Q, _, _ = jnp.linalg.svd(A, full_matrices=True)  # Get orthogonal matrix (num, num)
-    return Q[:dim, :num]
+    return Q[:dim, :num] * 5
 
 
 def generate_callable_functions(dim, num, seed):
@@ -174,12 +171,28 @@ def my_eval(v):
     return system(y=v)
 
 
-def create_batches(inputs, outputs, batch_size):
-    num_batches = inputs.shape[0] // batch_size
-    return jax.tree.map(
-        lambda x: x[: num_batches * batch_size].reshape(num_batches, batch_size, -1),
-        (inputs, outputs),
-    )
+def create_batches(inputs, outputs, batch_size, seed=42):
+    key = random.key(seed)
+    num_samples = inputs.shape[0]
+    indices = jnp.arange(num_samples)
+    shuffled_indices = random.permutation(key, indices)
+
+    num_batches = num_samples // batch_size
+    batches_x = [
+        jnp.array(inputs[shuffled_indices[i * batch_size : (i + 1) * batch_size]])
+        for i in range(num_batches)
+    ]
+
+    batches_x = jnp.array(batches_x)
+
+    batches_y = [
+        jnp.array(outputs[shuffled_indices[i * batch_size : (i + 1) * batch_size]])
+        for i in range(num_batches)
+    ]
+
+    batches_y = jnp.array(batches_y)
+
+    return tuple([batches_x, batches_y])
 
 
 def count_params(params):
@@ -195,14 +208,14 @@ def count_params(params):
 ################################################################################
 ################################################################################
 
-state_variables = 4
-expected_number_of_nls = 4
+state_variables = 20
+expected_number_of_nls = 10
 input_dim = state_variables * expected_number_of_nls
 output_dim = state_variables
 
 seed = 42
-train_batch_size = 32
-test_batch_size = 64
+train_batch_size = 64
+test_batch_size = 128
 
 
 dims = 6
@@ -213,7 +226,7 @@ non_lins, vec_nls = generate_callable_functions(dims, n_nls, seed)
 config = {
     "n_vars": state_variables,
     "n_eqs": state_variables,
-    "bounds_addends": (1, 1),
+    "bounds_addends": (1, 3),
     "bounds_multiplicands": (1, 1),
     "non_lins": non_lins,
     "sym_non_lins": None,
@@ -327,11 +340,24 @@ schedule = warmup_cosine_decay_schedule(
 optimizer = adam(learning_rate=schedule)
 state = TrainState.create(apply_fn=model.apply, params=params, tx=optimizer)
 
+alphas = vec_nls[:, :3].T
+gammas = vec_nls[:, 3:].T
+
 
 @partial(jax.jit, static_argnums=(1))
-def loss_fn(params, apply_fn, batch_x, batch_y):
+def loss_fn(params, apply_fn, batch_x, batch_y, vec_lambda=1.0):
     predictions = apply_fn(params, batch_x)
-    return jnp.mean((predictions - batch_y) ** 2)
+    mse_loss = jnp.mean((predictions - batch_y) ** 2)
+
+    # Extract alpha and gamma from CustomActivation_0
+    alpha = params["params"]["CustomActivation_old_0"]["alpha"]
+    gamma = params["params"]["CustomActivation_old_0"]["gamma"]
+
+    # Compute L2 distance to target vector
+    vec_diff = (alpha - alphas) ** 2 + (gamma - gammas) ** 2
+    vec_loss = jnp.sum(vec_diff)  # Sum of squared differences
+
+    return mse_loss + vec_lambda * vec_loss
 
 
 @jit
@@ -357,21 +383,21 @@ def train_epoch(carry, epoch):
         batch_step, (state, 0.0), train_batches
     )
 
-    # # Print every n epochs
-    # print_condition = epoch % 25 == 0
-    # jax.lax.cond(
-    #     print_condition,
-    #     # True branch: print metrics
-    #     lambda: jax.debug.print(
-    #         "Epoch: {epoch}, Train Loss: {train_loss:.4e}, Inbound-Test Loss: {inbound_test_loss:.4e}, Outofbound-Test Loss: {outofbound_test_loss:.4e} ",
-    #         epoch=epoch,
-    #         train_loss=jnp.mean(train_losses),
-    #         inbound_test_loss=jnp.mean(inbound_test_losses),
-    #         outofbound_test_loss=jnp.mean(outofbound_test_losses),
-    #     ),
-    #     # False branch: do nothing
-    #     lambda: None,
-    # )
+    # Print every n epochs
+    print_condition = epoch % 25 == 0
+    jax.lax.cond(
+        print_condition,
+        # True branch: print metrics
+        lambda: jax.debug.print(
+            "Epoch: {epoch}, Train Loss: {train_loss:.4e}, Inbound-Test Loss: {inbound_test_loss:.4e}, Outofbound-Test Loss: {outofbound_test_loss:.4e} ",
+            epoch=epoch,
+            train_loss=jnp.mean(train_losses),
+            inbound_test_loss=jnp.mean(inbound_test_losses),
+            outofbound_test_loss=jnp.mean(outofbound_test_losses),
+        ),
+        # False branch: do nothing
+        lambda: None,
+    )
     return (state, epoch_loss), (
         train_losses,
         inbound_test_losses,
@@ -387,7 +413,6 @@ jax.block_until_ready(state)
 print("Training complete!")
 end_time = time.time()
 print(f"Total training time: {end_time - start_time:.4f} seconds")
-print(jnp.min(train_losses))
 
 ####################################################################################
 ####################################################################################
@@ -417,9 +442,9 @@ outofbound_test_batches = create_batches(
 @jit
 def activ_func(x, args):
     return (
-        args[0] * nn.relu(x + args[1])
-        + args[2] * nn.relu(x + args[3])
-        + args[4] * nn.relu(x + args[5])
+        args[0] * nn.relu(x + args[3])
+        + args[1] * nn.relu(x + args[4])
+        + args[2] * nn.relu(x + args[5])
     )
 
 
@@ -453,56 +478,67 @@ schedule = warmup_cosine_decay_schedule(
 optimizer = adam(learning_rate=schedule)
 state = TrainState.create(apply_fn=model.apply, params=params, tx=optimizer)
 
-
-# @partial(jax.jit, static_argnums=(1))
-# def loss_fn(params, apply_fn, batch_x, batch_y):
-#     predictions = apply_fn(params, batch_x)
-#     return jnp.mean((predictions - batch_y) ** 2)
+alphas = vec_nls[:, :3]
+gammas = vec_nls[:, 3:]
 
 
-# @jit
-# def train_epoch(carry, epoch):
-#     state, _ = carry  # Unpack state and dummy loss accumulator
-#     epoch_loss = jnp.array(0.0)
+@partial(jax.jit, static_argnums=(1))
+def loss_fn(params, apply_fn, batch_x, batch_y, vec_lambda=1.0):
+    predictions = apply_fn(params, batch_x)
+    mse_loss = jnp.mean((predictions - batch_y) ** 2)
 
-#     # Loop over batches
-#     def batch_step(carry, batch):
-#         state, _ = carry
-#         batch_x, batch_y = batch
-#         state, train_loss = train_step(state, batch_x, batch_y, loss_fn)
-#         inbound_test_loss = evaluate(state, inbound_test_batches, loss_fn)
-#         outofbound_test_loss = evaluate(state, outofbound_test_batches, loss_fn)
+    # Compute L2 distance to target vector
+    vec_diff = (
+        params["params"]["custom_activation"]["activation_params"] - vec_nls
+    ) ** 2
+    vec_loss = jnp.sum(vec_diff)  # Sum of squared differences
 
-#         return (state, train_loss), (
-#             train_loss,
-#             inbound_test_loss,
-#             outofbound_test_loss,
-#         )
+    return mse_loss + vec_lambda * vec_loss
 
-#     (state, _), (train_losses, inbound_test_losses, outofbound_test_losses) = lax.scan(
-#         batch_step, (state, 0.0), train_batches
-#     )
 
-#     # Print every n epochs
-#     print_condition = epoch % 25 == 0
-#     jax.lax.cond(
-#         print_condition,
-#         # True branch: print metrics
-#         lambda: jax.debug.print(
-#             "Epoch: {epoch}, Train Loss: {train_loss:.4e}, Inbound-Test Loss: {inbound_test_loss:.4e}, Outofbound-Test Loss: {outofbound_test_loss:.4e} ",
-#             epoch=epoch,
-#             train_loss=jnp.mean(train_losses),
-#             inbound_test_loss=jnp.mean(inbound_test_losses),
-#             outofbound_test_loss=jnp.mean(outofbound_test_losses),
-#         ),
-#         # False branch: do nothing
-#         lambda: None,
-#     )
-#     return (state, epoch_loss), (
-#         train_losses,
-#         inbound_test_losses,
-#         outofbound_test_losses,
-#     )
+@jit
+def train_epoch(carry, epoch):
+    state, _ = carry  # Unpack state and dummy loss accumulator
+    epoch_loss = jnp.array(0.0)
+
+    # Loop over batches
+    def batch_step(carry, batch):
+        state, _ = carry
+        batch_x, batch_y = batch
+        state, train_loss = train_step(state, batch_x, batch_y, loss_fn)
+        inbound_test_loss = evaluate(state, inbound_test_batches, loss_fn)
+        outofbound_test_loss = evaluate(state, outofbound_test_batches, loss_fn)
+
+        return (state, train_loss), (
+            train_loss,
+            inbound_test_loss,
+            outofbound_test_loss,
+        )
+
+    (state, _), (train_losses, inbound_test_losses, outofbound_test_losses) = lax.scan(
+        batch_step, (state, 0.0), train_batches
+    )
+
+    # Print every n epochs
+    print_condition = epoch % 25 == 0
+    jax.lax.cond(
+        print_condition,
+        # True branch: print metrics
+        lambda: jax.debug.print(
+            "Epoch: {epoch}, Train Loss: {train_loss:.4e}, Inbound-Test Loss: {inbound_test_loss:.4e}, Outofbound-Test Loss: {outofbound_test_loss:.4e} ",
+            epoch=epoch,
+            train_loss=jnp.mean(train_losses),
+            inbound_test_loss=jnp.mean(inbound_test_losses),
+            outofbound_test_loss=jnp.mean(outofbound_test_losses),
+        ),
+        # False branch: do nothing
+        lambda: None,
+    )
+    return (state, epoch_loss), (
+        train_losses,
+        inbound_test_losses,
+        outofbound_test_losses,
+    )
 
 
 start_time = time.time()
@@ -514,4 +550,3 @@ jax.block_until_ready(state)
 print("Training complete!")
 end_time = time.time()
 print(f"Total training time: {end_time - start_time:.4f} seconds")
-print(jnp.min(train_losses))
