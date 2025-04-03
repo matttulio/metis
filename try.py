@@ -208,8 +208,8 @@ def count_params(params):
 ################################################################################
 ################################################################################
 
-state_variables = 4
-expected_number_of_nls = 2
+state_variables = 20
+expected_number_of_nls = 5
 input_dim = state_variables * expected_number_of_nls
 output_dim = state_variables
 
