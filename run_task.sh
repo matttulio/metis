@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -A=PRACE_IT
+#SBATCH -A=OGS23_PRACE_IT_0
 #SBATCH --job-name=JOB
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=matteo.gallo@phd.units.it
