@@ -1,8 +1,6 @@
 #!/bin/bash
 #SBATCH -A=OGS23_PRACE_IT_0
 #SBATCH --job-name=JOB
-#SBATCH --mail-type=ALL
-#SBATCH --mail-user=matteo.gallo@phd.units.it
 #SBATCH --partition=boost_usr_prod
 #SBATCH --qos=normal
 #SBATCH --gres=gpu:1
