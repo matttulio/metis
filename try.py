@@ -174,28 +174,12 @@ def my_eval(v):
     return system(y=v)
 
 
-def create_batches(inputs, outputs, batch_size, seed=42):
-    key = random.key(seed)
-    num_samples = inputs.shape[0]
-    indices = jnp.arange(num_samples)
-    shuffled_indices = random.permutation(key, indices)
-
-    num_batches = num_samples // batch_size
-    batches_x = [
-        jnp.array(inputs[shuffled_indices[i * batch_size : (i + 1) * batch_size]])
-        for i in range(num_batches)
-    ]
-
-    batches_x = jnp.array(batches_x)
-
-    batches_y = [
-        jnp.array(outputs[shuffled_indices[i * batch_size : (i + 1) * batch_size]])
-        for i in range(num_batches)
-    ]
-
-    batches_y = jnp.array(batches_y)
-
-    return tuple([batches_x, batches_y])
+def create_batches(inputs, outputs, batch_size):
+    num_batches = inputs.shape[0] // batch_size
+    return jax.tree.map(
+        lambda x: x[: num_batches * batch_size].reshape(num_batches, batch_size, -1),
+        (inputs, outputs),
+    )
 
 
 def count_params(params):
