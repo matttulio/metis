@@ -312,7 +312,7 @@ outofbound_test_batches = create_batches(
     outofbound_test, outofbound_test_outputs, test_batch_size
 )
 
-num_epochs = 1001
+num_epochs = 101
 
 model = ZeroLayersNN(
     N=input_dim,
@@ -393,10 +393,10 @@ def train_epoch(carry, epoch):
     )
 
 
+start_time = time.time()
 (state, loss), (train_losses, inbound_test_losses, outofbound_test_losses) = lax.scan(
     train_epoch, (state, 0.0), jnp.arange(num_epochs)
 )
-start_time = time.time()
 jax.block_until_ready(state)
 print("Training complete!")
 end_time = time.time()
@@ -519,10 +519,11 @@ def train_epoch(carry, epoch):
     )
 
 
+start_time = time.time()
 (state, loss), (train_losses, inbound_test_losses, outofbound_test_losses) = lax.scan(
     train_epoch, (state, 0.0), jnp.arange(num_epochs)
 )
-start_time = time.time()
+
 jax.block_until_ready(state)
 print("Training complete!")
 end_time = time.time()
