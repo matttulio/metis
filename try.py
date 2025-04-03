@@ -67,26 +67,25 @@ class LearnableActivationsFixedParams(nn.Module):
         if self.input_features % self.num_activations != 0:
             raise ValueError("Input features must be divisible by num_activations")
 
-        # All params stored in a single array: shape (num_activations, 2)
+        # Parameters stored as (num_activations, n_params)
         self.params = self.param(
             "activation_params",
             nn.initializers.normal(),
-            (self.num_activations, self.n_params),  # Fixed 2 params per activation
+            (self.num_activations, self.n_params),
         )
 
     def __call__(self, x):
+        # Split input once (B, D) -> list of (B, D//num_activations)
         splits = jnp.split(x, self.num_activations, axis=-1)
 
-        # Initialize with first activation
-        activated = self.activations[0](splits[0], self.params[0])
+        # Process all activations in parallel using list comprehension
+        activated_parts = [
+            activation(split, params)
+            for activation, split, params in zip(self.activations, splits, self.params)
+        ]
 
-        # Iteratively concatenate remaining activations
-        for i in range(1, self.num_activations):
-            activated = jnp.concatenate(
-                [activated, self.activations[i](splits[i], self.params[i])], axis=-1
-            )
-
-        return activated
+        # Single concatenation at the end
+        return jnp.concatenate(activated_parts, axis=-1)
 
 
 class SampleLearnModel(nn.Module):
