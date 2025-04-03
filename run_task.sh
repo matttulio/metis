@@ -7,6 +7,8 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --time=00:15:00
+#SBATCH --output=./log_opt/%x.o%A-%a
+#SBATCH --error=./log_opt/%x.o%A-%a
 
 
 
