@@ -454,55 +454,55 @@ optimizer = adam(learning_rate=schedule)
 state = TrainState.create(apply_fn=model.apply, params=params, tx=optimizer)
 
 
-@partial(jax.jit, static_argnums=(1))
-def loss_fn(params, apply_fn, batch_x, batch_y):
-    predictions = apply_fn(params, batch_x)
-    return jnp.mean((predictions - batch_y) ** 2)
+# @partial(jax.jit, static_argnums=(1))
+# def loss_fn(params, apply_fn, batch_x, batch_y):
+#     predictions = apply_fn(params, batch_x)
+#     return jnp.mean((predictions - batch_y) ** 2)
 
 
-@jit
-def train_epoch(carry, epoch):
-    state, _ = carry  # Unpack state and dummy loss accumulator
-    epoch_loss = jnp.array(0.0)
+# @jit
+# def train_epoch(carry, epoch):
+#     state, _ = carry  # Unpack state and dummy loss accumulator
+#     epoch_loss = jnp.array(0.0)
 
-    # Loop over batches
-    def batch_step(carry, batch):
-        state, _ = carry
-        batch_x, batch_y = batch
-        state, train_loss = train_step(state, batch_x, batch_y, loss_fn)
-        inbound_test_loss = evaluate(state, inbound_test_batches, loss_fn)
-        outofbound_test_loss = evaluate(state, outofbound_test_batches, loss_fn)
+#     # Loop over batches
+#     def batch_step(carry, batch):
+#         state, _ = carry
+#         batch_x, batch_y = batch
+#         state, train_loss = train_step(state, batch_x, batch_y, loss_fn)
+#         inbound_test_loss = evaluate(state, inbound_test_batches, loss_fn)
+#         outofbound_test_loss = evaluate(state, outofbound_test_batches, loss_fn)
 
-        return (state, train_loss), (
-            train_loss,
-            inbound_test_loss,
-            outofbound_test_loss,
-        )
+#         return (state, train_loss), (
+#             train_loss,
+#             inbound_test_loss,
+#             outofbound_test_loss,
+#         )
 
-    (state, _), (train_losses, inbound_test_losses, outofbound_test_losses) = lax.scan(
-        batch_step, (state, 0.0), train_batches
-    )
+#     (state, _), (train_losses, inbound_test_losses, outofbound_test_losses) = lax.scan(
+#         batch_step, (state, 0.0), train_batches
+#     )
 
-    # Print every n epochs
-    print_condition = epoch % 25 == 0
-    jax.lax.cond(
-        print_condition,
-        # True branch: print metrics
-        lambda: jax.debug.print(
-            "Epoch: {epoch}, Train Loss: {train_loss:.4e}, Inbound-Test Loss: {inbound_test_loss:.4e}, Outofbound-Test Loss: {outofbound_test_loss:.4e} ",
-            epoch=epoch,
-            train_loss=jnp.mean(train_losses),
-            inbound_test_loss=jnp.mean(inbound_test_losses),
-            outofbound_test_loss=jnp.mean(outofbound_test_losses),
-        ),
-        # False branch: do nothing
-        lambda: None,
-    )
-    return (state, epoch_loss), (
-        train_losses,
-        inbound_test_losses,
-        outofbound_test_losses,
-    )
+#     # Print every n epochs
+#     print_condition = epoch % 25 == 0
+#     jax.lax.cond(
+#         print_condition,
+#         # True branch: print metrics
+#         lambda: jax.debug.print(
+#             "Epoch: {epoch}, Train Loss: {train_loss:.4e}, Inbound-Test Loss: {inbound_test_loss:.4e}, Outofbound-Test Loss: {outofbound_test_loss:.4e} ",
+#             epoch=epoch,
+#             train_loss=jnp.mean(train_losses),
+#             inbound_test_loss=jnp.mean(inbound_test_losses),
+#             outofbound_test_loss=jnp.mean(outofbound_test_losses),
+#         ),
+#         # False branch: do nothing
+#         lambda: None,
+#     )
+#     return (state, epoch_loss), (
+#         train_losses,
+#         inbound_test_losses,
+#         outofbound_test_losses,
+#     )
 
 
 start_time = time.time()
