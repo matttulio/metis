@@ -208,8 +208,8 @@ def count_params(params):
 ################################################################################
 ################################################################################
 
-state_variables = 20
-expected_number_of_nls = 10
+state_variables = 4
+expected_number_of_nls = 2
 input_dim = state_variables * expected_number_of_nls
 output_dim = state_variables
 
@@ -310,6 +310,15 @@ inbound_test_batches = create_batches(
 outofbound_test_batches = create_batches(
     outofbound_test, outofbound_test_outputs, test_batch_size
 )
+
+# train_batches = jnp.array(train_batches)
+# inbound_test_batches = jnp.array(inbound_test_batches)
+# outofbound_test_batches = jnp.array(outofbound_test_batches)
+
+# # Move the entire batch dataset to the device
+# train_batches = jax.device_put(train_batches)
+# inbound_test_batches = jax.device_put(inbound_test_batches)
+# outofbound_test_batches = jax.device_put(outofbound_test_batches)
 
 num_epochs = 101
 
@@ -437,6 +446,15 @@ inbound_test_batches = create_batches(
 outofbound_test_batches = create_batches(
     outofbound_test, outofbound_test_outputs, test_batch_size
 )
+
+# train_batches = jnp.array(train_batches)
+# inbound_test_batches = jnp.array(inbound_test_batches)
+# outofbound_test_batches = jnp.array(outofbound_test_batches)
+
+# # Move the entire batch dataset to the device
+# train_batches = jax.device_put(train_batches)
+# inbound_test_batches = jax.device_put(inbound_test_batches)
+# outofbound_test_batches = jax.device_put(outofbound_test_batches)
 
 
 @jit
