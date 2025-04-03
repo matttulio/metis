@@ -7,4 +7,4 @@ y = jax.device_put(x)  # Send data to the GPU
 z = y * 2
 
 # Print the device
-print(f"Computation done on: {z.device()}")
+print(f"Computation done on: {z.device}")
