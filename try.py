@@ -357,21 +357,21 @@ def train_epoch(carry, epoch):
         batch_step, (state, 0.0), train_batches
     )
 
-    # Print every n epochs
-    print_condition = epoch % 25 == 0
-    jax.lax.cond(
-        print_condition,
-        # True branch: print metrics
-        lambda: jax.debug.print(
-            "Epoch: {epoch}, Train Loss: {train_loss:.4e}, Inbound-Test Loss: {inbound_test_loss:.4e}, Outofbound-Test Loss: {outofbound_test_loss:.4e} ",
-            epoch=epoch,
-            train_loss=jnp.mean(train_losses),
-            inbound_test_loss=jnp.mean(inbound_test_losses),
-            outofbound_test_loss=jnp.mean(outofbound_test_losses),
-        ),
-        # False branch: do nothing
-        lambda: None,
-    )
+    # # Print every n epochs
+    # print_condition = epoch % 25 == 0
+    # jax.lax.cond(
+    #     print_condition,
+    #     # True branch: print metrics
+    #     lambda: jax.debug.print(
+    #         "Epoch: {epoch}, Train Loss: {train_loss:.4e}, Inbound-Test Loss: {inbound_test_loss:.4e}, Outofbound-Test Loss: {outofbound_test_loss:.4e} ",
+    #         epoch=epoch,
+    #         train_loss=jnp.mean(train_losses),
+    #         inbound_test_loss=jnp.mean(inbound_test_losses),
+    #         outofbound_test_loss=jnp.mean(outofbound_test_losses),
+    #     ),
+    #     # False branch: do nothing
+    #     lambda: None,
+    # )
     return (state, epoch_loss), (
         train_losses,
         inbound_test_losses,
@@ -387,7 +387,7 @@ jax.block_until_ready(state)
 print("Training complete!")
 end_time = time.time()
 print(f"Total training time: {end_time - start_time:.4f} seconds")
-
+print(jnp.min(train_losses))
 
 ####################################################################################
 ####################################################################################
@@ -514,3 +514,4 @@ jax.block_until_ready(state)
 print("Training complete!")
 end_time = time.time()
 print(f"Total training time: {end_time - start_time:.4f} seconds")
+print(jnp.min(train_losses))
