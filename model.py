@@ -18,21 +18,13 @@ class CustomActivation(nn.Module):
             self.alpha = self.param("alpha", nn.initializers.normal(), (3, self.L))
             self.gamma = self.param("gamma", nn.initializers.normal(), (3, self.L))
         else:
-            # Split nls_init into alpha and gamma parameters
             assert self.nls_init.shape == (self.L, 6), "nls_init must have shape (L, 6)"
-
-            # Extract and transpose to get (3, L) shapes
-            alpha_init = self.nls_init[:, :3].T  # First 3 columns -> (3, L)
-            gamma_init = self.nls_init[:, 3:6].T  # Last 3 columns -> (3, L)
-
-            # Create parameters using the initialization array
+            alpha_init = self.nls_init[:, :3].T  # (3, L)
+            gamma_init = self.nls_init[:, 3:6].T  # (3, L)
             self.alpha = self.param("alpha", lambda *_: alpha_init)
             self.gamma = self.param("gamma", lambda *_: gamma_init)
 
-        # Precompute group indices (input_dim must be divisible by L)
-        assert (
-            self.input_dim % self.L == 0
-        ), "input_dim must be divisible by number of groups (L)"
+        assert self.input_dim % self.L == 0, "input_dim must be divisible by L"
         self.group_indices = jnp.arange(self.input_dim) % self.L
 
         if not self.trainable:
@@ -41,21 +33,20 @@ class CustomActivation(nn.Module):
 
     def __call__(self, x):
         # Gather parameters for all input dimensions (3, input_dim)
-        alpha = self.alpha[:, self.group_indices]
-        gamma = self.gamma[:, self.group_indices]
+        alpha = self.alpha[:, self.group_indices]  # (3, D)
+        gamma = self.gamma[:, self.group_indices]  # (3, D)
 
-        # Reshape for broadcasting: (3, D) -> (1, D, 3)
-        alpha = jnp.moveaxis(alpha, 0, -1)[None, ...]  # Add batch dim
-        gamma = jnp.moveaxis(gamma, 0, -1)[None, ...]  # Add batch dim
+        activated_terms = []
+        for i in range(3):
+            alpha_i = alpha[i, :]  # (D,)
+            gamma_i = gamma[i, :]  # (D,)
+            # Compute each activation term: (B, D)
+            term = alpha_i[None, :] * nn.relu(x + gamma_i[None, :])
+            activated_terms.append(term)
 
-        # Expand x for broadcasting: (B, D) -> (B, D, 1)
-        x_expanded = jnp.expand_dims(x, axis=-1)
-
-        # Vectorized computation (B, D, 1) + (1, D, 3) -> (B, D, 3)
-        activated = alpha * nn.relu(x_expanded + gamma)
-
-        # Sum over the 3 terms (B, D, 3) -> (B, D)
-        return jnp.sum(activated, axis=-1)
+        # Stack along the last dimension and sum
+        activated = jnp.stack(activated_terms, axis=-1)  # (B, D, 3)
+        return jnp.sum(activated, axis=-1)  # (B, D)
 
 
 # Custom initializer for binary weights (0 or 1)
