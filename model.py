@@ -6,6 +6,8 @@ from flax.training import train_state
 from functools import partial
 from typing import Sequence, Callable
 
+jax.config.update("jax_enable_x64", True)
+
 
 class CustomActivation(nn.Module):
     input_dim: int
